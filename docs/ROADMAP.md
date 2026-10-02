@@ -20,7 +20,8 @@
 
 # Этап 1 — Основа проекта
 
-Статус: Implemented — реализация и проверки завершены, ожидает Git commit.
+Статус: Completed (локально) — реализация, проверки и Git commit завершены.
+Push ожидает подключения GitHub remote; Этап 2 не начат.
 
 Цель:
 создать технический фундамент приложения и первый рабочий функционал.
@@ -50,7 +51,7 @@
 - [x] Проверить IndexedDB и интерфейс в WebKit с профилем iPhone
 - [x] Проверить TypeScript и lint
 - [x] Выполнить npm run build
-- [ ] Создать Git commit
+- [x] Создать Git commit — `5fbc5d8` (`feat: initialize task tracker and boolean habits`)
 - [ ] Push в GitHub — remote не настроен
 
 Проверено 2026-10-02:
