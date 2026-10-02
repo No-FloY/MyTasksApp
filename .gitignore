@@ -1,0 +1,25 @@
+node_modules/
+dist/
+build/
+coverage/
+playwright-report/
+test-results/
+.tools/
+.artifacts/
+*.local
+*.log
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+# Never version browser profiles or local user databases.
+browser-profile/
+IndexedDB/
+*.sqlite
+*.sqlite3
+*.db
