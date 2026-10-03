@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 
+const externalBaseURL = process.env.PLAYWRIGHT_BASE_URL
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -8,7 +10,7 @@ export default defineConfig({
   workers: 2,
   reporter: 'list',
   use: {
-    baseURL: 'http://127.0.0.1:5173',
+    baseURL: externalBaseURL ?? 'http://127.0.0.1:5173',
     locale: 'ru-RU',
     timezoneId: 'Europe/Moscow',
     viewport: { width: 1440, height: 1000 },
@@ -19,7 +21,7 @@ export default defineConfig({
     { name: 'chrome', use: { browserName: 'chromium', channel: 'chrome' } },
     { name: 'iphone-webkit', use: { ...devices['iPhone SE'], browserName: 'webkit' } },
   ],
-  webServer: {
+  webServer: externalBaseURL ? undefined : {
     command: 'node node_modules/vite/bin/vite.js --host 127.0.0.1 --port 5173 --strictPort',
     url: 'http://127.0.0.1:5173',
     reuseExistingServer: !process.env.CI,

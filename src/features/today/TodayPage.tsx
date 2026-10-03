@@ -4,11 +4,15 @@ import { Card } from '@/components/ui/card'
 import { useLocalDate } from '@/hooks/use-local-date'
 import { formatLocalDate } from '@/lib/local-date'
 import { HabitRow } from './components/HabitRow'
+import { AmountTracker } from './components/AmountTracker'
 import { useTodayHabits } from './use-today-habits'
 
 export function TodayPage() {
   const date = useLocalDate()
-  const { habits, loading, error, retry, saveStatus, getSaveState } = useTodayHabits(date)
+  const {
+    habits, amountHabits, loading, error, retry, saveStatus, getSaveState,
+    addAmount, submitAmount, changeAmountInput, getAmountInput,
+  } = useTodayHabits(date)
 
   return (
     <div className="today-page">
@@ -20,6 +24,22 @@ export function TodayPage() {
         </div>
         <div className="day-note"><span>НОВЫЙ ДЕНЬ — НОВЫЙ ШАГ</span><p>Не идеально.<br />Просто последовательно.</p><ArrowRight size={20} strokeWidth={1.5} aria-hidden="true" /></div>
       </section>
+
+      {amountHabits.map((item) => {
+        const saveState = getSaveState(item.habit.id)
+        return (
+          <AmountTracker
+            key={item.habit.id}
+            item={item}
+            input={getAmountInput(item.habit.id)}
+            pending={saveState.pending}
+            error={saveState.error}
+            onInputChange={(input) => changeAmountInput(item.habit.id, input)}
+            onAdd={(amount) => addAmount(item.habit.id, amount)}
+            onSubmit={() => submitAmount(item.habit.id)}
+          />
+        )
+      })}
 
       <Card className="habits-card">
         <div className="habits-card-heading">
