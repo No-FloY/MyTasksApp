@@ -21,6 +21,16 @@ export function getLocalDate(date: Date = new Date()): LocalDate {
   return value
 }
 
+export function isFutureDate(date: LocalDate, today: LocalDate = getLocalDate()): boolean {
+  if (!isLocalDate(date) || !isLocalDate(today)) throw new Error('Некорректная календарная дата.')
+  return date > today
+}
+
+/** Recheck at the service boundary: a calendar view is not permission to write future results. */
+export function assertEditableDate(date: LocalDate): void {
+  if (isFutureDate(date)) throw new Error('Будущий день ещё не наступил. Его нельзя редактировать.')
+}
+
 export function formatLocalDate(date: LocalDate): string {
   if (!isLocalDate(date)) throw new Error('Некорректная календарная дата.')
   return format(parseISO(date), 'EEEE, d MMMM', { locale: ru })

@@ -1,8 +1,8 @@
 import 'fake-indexeddb/auto'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TaskTrackerDatabase } from '../db/database'
 import { getLocalDate, type LocalDate } from '../lib/local-date'
-import { HabitService, parseAmountInput } from './habit-service'
+import { HabitService, parseAmountInput, parseAmountTotalInput } from './habit-service'
 
 let database: TaskTrackerDatabase
 let service: HabitService
@@ -11,6 +11,8 @@ const tomorrow = getLocalDate(new Date(2026, 9, 3))
 const originalTimestamp = '2026-10-01T10:00:00.000Z'
 
 beforeEach(async () => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date(2026, 9, 4, 12))
   database = new TaskTrackerDatabase(`zadachnik-amount-test-${crypto.randomUUID()}`)
   service = new HabitService(database)
   await database.open()
@@ -18,6 +20,78 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await database.delete()
+  vi.useRealTimers()
+})
+
+describe('absolute amount editing', () => {
+  it('replaces a past total, preserves extra fields and distinguishes recorded zero from no entry', async () => {
+    const entry = {
+      habitId: 'water', date: today, type: 'amount' as const, value: 1200,
+      createdAt: originalTimestamp, updatedAt: originalTimestamp, note: 'После тренировки',
+    }
+    await database.habitEntries.put(entry)
+    await service.setHabitAmount('water', today, 1800)
+    expect(await database.habitEntries.get(['water', today])).toMatchObject({
+      value: 1800, createdAt: originalTimestamp, note: entry.note,
+    })
+    expect((await service.getTodayAmountHabits(today))[0]).toMatchObject({ value: 1800, progress: 90, hasEntry: true })
+    await service.setHabitAmount('water', today, 0)
+    expect((await service.getTodayAmountHabits(today))[0]).toMatchObject({ value: 0, progress: 0, hasEntry: true, status: 'in-progress' })
+    expect((await service.getTodayAmountHabits(tomorrow))[0]).toMatchObject({ value: 0, progress: 0, hasEntry: false, status: 'no-data' })
+    expect(await database.habitEntries.count()).toBe(1)
+    await service.addHabitAmount('water', today, 200)
+    expect(await database.habitEntries.get(['water', today])).toMatchObject({ value: 200, note: entry.note })
+  })
+
+  it('stores a new absolute amount and preserves it after database reopen', async () => {
+    await service.setHabitAmount('water', today, 2400)
+    const name = database.name
+    database.close()
+    database = new TaskTrackerDatabase(name)
+    service = new HabitService(database)
+    await database.open()
+    expect((await service.getTodayAmountHabits(today))[0]).toMatchObject({ value: 2400, status: 'success', progress: 100 })
+  })
+
+  it('serializes a replacement followed by an increment without losing either operation', async () => {
+    await Promise.all([service.setHabitAmount('water', today, 1800), service.addHabitAmount('water', today, 400)])
+    expect((await service.getTodayAmountHabits(today))[0]?.value).toBe(2200)
+  })
+
+  it('rejects future absolute totals and additions without writing', async () => {
+    const future = getLocalDate(new Date(2026, 9, 5))
+    await expect(service.setHabitAmount('water', future, 0)).rejects.toThrow('Будущий день')
+    await expect(service.addHabitAmount('water', future, 200)).rejects.toThrow('Будущий день')
+    expect(await database.habitEntries.count()).toBe(0)
+  })
+
+  it.each([-1, 1.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1])('rejects invalid absolute total %s', async (value) => {
+    await service.setHabitAmount('water', today, 1200)
+    const before = await database.habitEntries.get(['water', today])
+    await expect(service.setHabitAmount('water', today, value)).rejects.toThrow('неотрицательное')
+    expect(await database.habitEntries.get(['water', today])).toEqual(before)
+  })
+
+  it('rejects an incompatible entry and archived or missing habits', async () => {
+    await expect(service.setHabitAmount('missing', today, 0)).rejects.toThrow('не найдена')
+    await expect(service.setHabitAmount('english', today, 0)).rejects.toThrow('не поддерживает')
+    await database.habitEntries.put({
+      habitId: 'water', date: today, type: 'duration', minutes: 0,
+      createdAt: originalTimestamp, updatedAt: originalTimestamp,
+    })
+    await expect(service.setHabitAmount('water', today, 0)).rejects.toThrow('Тип сохранённой записи')
+    await database.habits.update('water', { archivedAt: originalTimestamp })
+    await expect(service.setHabitAmount('water', tomorrow, 0)).rejects.toThrow('в архиве')
+    expect(await database.habitEntries.count()).toBe(1)
+  })
+
+  it.each([['0', 0], [' 1800 ', 1800], ['00200', 200]])('parses absolute total %s', (input, expected) => {
+    expect(parseAmountTotalInput(input)).toBe(expected)
+  })
+
+  it.each(['', '-1', '1.5', '1e3', 'Infinity', '9007199254740992'])('rejects invalid absolute input %s', (input) => {
+    expect(() => parseAmountTotalInput(input)).toThrow('неотрицательное')
+  })
 })
 
 describe('amount habit results', () => {

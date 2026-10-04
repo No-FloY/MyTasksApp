@@ -6,6 +6,7 @@ import type { AmountHabitWithProgress } from '@/services/habit-service'
 import '../amount-tracker.css'
 
 interface AmountTrackerProps {
+  mode?: 'add' | 'total'
   item: AmountHabitWithProgress
   input: string
   pending: boolean
@@ -18,7 +19,8 @@ interface AmountTrackerProps {
 const numberFormatter = new Intl.NumberFormat('ru-RU')
 
 export function AmountTracker({
-  item: { habit, value, status, progress },
+  mode = 'add',
+  item: { habit, value, status, progress, hasEntry },
   input,
   pending,
   error,
@@ -33,7 +35,7 @@ export function AmountTracker({
   const errorId = `${id}-error`
   const unitLabel = habit.unit === 'ml' ? 'мл' : habit.unit
   const amountLabel = `${numberFormatter.format(value)} / ${numberFormatter.format(habit.target)} ${unitLabel}`
-  const statusLabel = status === 'success'
+  const statusLabel = hasEntry && value === 0 ? `Сохранено 0 ${unitLabel}` : status === 'success'
     ? 'Цель достигнута'
     : status === 'no-data'
       ? 'Пока нет записей'
@@ -75,7 +77,7 @@ export function AmountTracker({
         </div>
 
         <div className="amount-controls">
-          <div className="amount-quick-actions" aria-label={`Быстро добавить: ${habit.name}`}>
+          {mode === 'add' && <div className="amount-quick-actions" aria-label={`Быстро добавить: ${habit.name}`}>
             {[200, 400].map((amount) => (
               <Button
                 key={amount}
@@ -88,17 +90,17 @@ export function AmountTracker({
                 +{amount} {unitLabel}
               </Button>
             ))}
-          </div>
+          </div>}
 
           <form
-            className="amount-form"
+            className={`amount-form ${mode === 'total' ? 'amount-form-total' : ''}`}
             noValidate
             onSubmit={(event) => {
               event.preventDefault()
               onSubmit()
             }}
           >
-            <label htmlFor={inputId}>Сколько добавить, {unitLabel}</label>
+            <label htmlFor={inputId}>{mode === 'total' ? 'Итог за день' : 'Сколько добавить'}, {unitLabel}</label>
             <div className="amount-input-row">
               <input
                 id={inputId}
@@ -115,9 +117,9 @@ export function AmountTracker({
                 aria-describedby={error ? `${hintId} ${errorId}` : hintId}
                 onChange={(event) => onInputChange(event.target.value)}
               />
-              <Button className="amount-submit" type="submit" disabled={pending}>Добавить</Button>
+              <Button className="amount-submit" type="submit" disabled={pending}>{mode === 'total' ? 'Сохранить количество' : 'Добавить'}</Button>
             </div>
-            <p id={hintId} className="amount-hint">Прибавим к выпитому за сегодня.</p>
+            <p id={hintId} className="amount-hint">{mode === 'total' ? 'Заменим итог выбранного дня. Можно указать 0.' : 'Прибавим к выпитому за сегодня.'}</p>
           </form>
 
           {error && <p id={errorId} className="amount-error" role="alert">{error}</p>}

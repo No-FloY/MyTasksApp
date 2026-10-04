@@ -183,6 +183,9 @@ test('keeps all six navigation items usable on a narrow screen without horizonta
     await expect(page.getByRole('heading', { name, exact: true, level: 1 })).toBeVisible()
     if (name === 'Статистика') {
       await expect(page.locator('[data-duration-statistics-id="gaming"]')).toBeVisible()
+    } else if (name === 'Календарь') {
+      await expect(page.getByTestId('calendar-month')).toBeVisible()
+      await expect(page.locator('[data-calendar-date][aria-current="date"]')).toBeVisible()
     } else {
       await expect(page.getByText('Этот раздел появится на следующих этапах разработки.', { exact: false }))
         .toBeVisible()

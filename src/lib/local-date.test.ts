@@ -1,17 +1,42 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  assertEditableDate,
   delayUntilNextLocalDay,
   formatLocalDate,
   getLocalDate,
   isLocalDate,
+  isFutureDate,
   type LocalDate,
 } from './local-date'
 
 afterEach(() => {
+  vi.useRealTimers()
   vi.unstubAllEnvs()
 })
 
 describe('local calendar dates', () => {
+  it('compares future days across month and year boundaries without treating today as future', () => {
+    const today = getLocalDate(new Date(2026, 11, 31))
+    expect(isFutureDate(getLocalDate(new Date(2027, 0, 1)), today)).toBe(true)
+    expect(isFutureDate(today, today)).toBe(false)
+    expect(isFutureDate(getLocalDate(new Date(2026, 11, 30)), today)).toBe(false)
+    expect(() => isFutureDate('2026-02-30' as LocalDate, today)).toThrow('Некорректная')
+  })
+
+  it.each([
+    ['Europe/Moscow', '2026-10-03T22:30:00Z', '2026-10-04', '2026-10-05'],
+    ['America/Los_Angeles', '2026-10-04T01:30:00Z', '2026-10-03', '2026-10-04'],
+  ])('checks the actual local day near midnight in %s', (timezone, now, today, future) => {
+    vi.stubEnv('TZ', timezone)
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(now))
+    expect(isFutureDate(today as LocalDate)).toBe(false)
+    expect(isFutureDate(future as LocalDate)).toBe(true)
+    expect(() => assertEditableDate(today as LocalDate)).not.toThrow()
+    expect(() => assertEditableDate(future as LocalDate)).toThrow('Будущий день')
+    expect(() => assertEditableDate('2026-02-30' as LocalDate)).toThrow('Некорректная')
+  })
+
   it('uses the local calendar day near midnight east of UTC', () => {
     vi.stubEnv('TZ', 'Europe/Moscow')
     expect(getLocalDate(new Date('2026-10-01T22:30:00Z'))).toBe('2026-10-02')

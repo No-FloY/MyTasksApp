@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TaskTrackerDatabase } from '../db/database'
 import { getInitialDurationRanges } from '../db/duration-defaults'
 import { getLocalDate, type LocalDate } from '../lib/local-date'
@@ -118,6 +118,8 @@ describe('duration persistence', () => {
   let service: DurationService
 
   beforeEach(async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 9, 4, 12))
     database = new TaskTrackerDatabase(`zadachnik-duration-test-${crypto.randomUUID()}`)
     service = new DurationService(database)
     await database.open()
@@ -125,6 +127,24 @@ describe('duration persistence', () => {
 
   afterEach(async () => {
     await database.delete()
+    vi.useRealTimers()
+  })
+
+  it('rejects a future day without storing any minutes', async () => {
+    await expect(service.setHabitDuration('gaming', getLocalDate(new Date(2026, 9, 5)), 0)).rejects.toThrow('Будущий день')
+    expect(await database.habitEntries.count()).toBe(0)
+  })
+
+  it('preserves additional fields when replacing a past duration', async () => {
+    const entry = {
+      habitId: 'gaming', date: today, type: 'duration' as const, minutes: 120,
+      createdAt: originalTimestamp, updatedAt: originalTimestamp, note: 'Выходной',
+    }
+    await database.habitEntries.put(entry)
+    await service.setHabitDuration('gaming', today, 0)
+    expect(await database.habitEntries.get(['gaming', today])).toMatchObject({
+      minutes: 0, createdAt: originalTimestamp, note: entry.note,
+    })
   })
 
   it('does not treat a missing record as zero, and stores explicit zero as actual duration', async () => {

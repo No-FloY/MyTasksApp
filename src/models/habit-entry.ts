@@ -7,6 +7,7 @@ interface HabitEntryBase {
   date: LocalDate
   createdAt: string
   updatedAt: string
+  note?: string
 }
 
 export interface BooleanHabitEntry extends HabitEntryBase {

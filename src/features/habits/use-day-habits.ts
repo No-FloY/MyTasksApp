@@ -12,6 +12,8 @@ import {
   getTodayAmountHabits,
   getTodayHabits,
   parseAmountInput,
+  parseAmountTotalInput,
+  setHabitAmount,
   setBooleanHabitStatus,
   type AmountHabitWithProgress,
   type BooleanHabitWithStatus,
@@ -33,7 +35,7 @@ interface SaveState {
   error?: string
 }
 
-export function useTodayHabits(date: LocalDate) {
+export function useDayHabits(date: LocalDate, mode: 'today' | 'calendar') {
   const [attempt, setAttempt] = useState(0)
   const [readState, setReadState] = useState<ReadState | null>(null)
   const [saveStates, setSaveStates] = useState<Record<string, SaveState>>({})
@@ -80,10 +82,10 @@ export function useTodayHabits(date: LocalDate) {
     const key = `${date}:${habitId}`
     if (writesInFlight.current.has(key)) return
 
-    if (date !== getLocalDate()) {
+    if (date > getLocalDate() || (mode === 'today' && date !== getLocalDate())) {
       setSaveStates((current) => ({
         ...current,
-        [key]: { pending: false, error: 'Наступил новый день. Обновите страницу перед отметкой.' },
+        [key]: { pending: false, error: 'Дата недоступна для записи. Обновите страницу перед отметкой.' },
       }))
       return
     }
@@ -139,7 +141,9 @@ export function useTodayHabits(date: LocalDate) {
     if (writesInFlight.current.has(key)) return
     let amount: number
     try {
-      amount = parseAmountInput(amountInputs[key] ?? '')
+      amount = mode === 'calendar'
+        ? parseAmountTotalInput(getAmountInput(habitId))
+        : parseAmountInput(amountInputs[key] ?? '')
     } catch (error) {
       setSaveStates((current) => ({
         ...current,
@@ -150,14 +154,28 @@ export function useTodayHabits(date: LocalDate) {
       }))
       return
     }
-    addAmount(habitId, amount, () => {
-      setAmountInputs((current) => ({ ...current, [key]: '' }))
+    const onSuccess = () => setAmountInputs((current) => {
+      const next = { ...current }
+      delete next[key]
+      return next
     })
+    if (mode === 'calendar') {
+      persist(habitId, () => setHabitAmount(habitId, date, amount),
+        'Не удалось сохранить количество. Введённое значение осталось в форме.', onSuccess)
+    } else addAmount(habitId, amount, onSuccess)
   }
 
   const currentState = readState?.date === date && readState.attempt === attempt ? readState : null
   const habits = currentState?.status === 'ready' ? currentState.habits : []
+  const amountHabits = currentState?.status === 'ready' ? currentState.amountHabits : []
   const durationHabits = currentState?.status === 'ready' ? currentState.durationHabits : []
+
+  function getAmountInput(habitId: string): string {
+    const draft = amountInputs[`${date}:${habitId}`]
+    if (draft !== undefined) return draft
+    const item = amountHabits.find((row) => row.habit.id === habitId)
+    return mode === 'calendar' && item?.hasEntry ? String(item.value) : ''
+  }
 
   function getDurationDraft(habitId: string): DurationInput {
     return durationInputs[`${date}:${habitId}`]
@@ -197,7 +215,7 @@ export function useTodayHabits(date: LocalDate) {
 
   return {
     habits,
-    amountHabits: currentState?.status === 'ready' ? currentState.amountHabits : [],
+    amountHabits,
     durationHabits,
     getDurationDraft,
     changeDurationInput,
@@ -209,7 +227,7 @@ export function useTodayHabits(date: LocalDate) {
     addAmount,
     submitAmount,
     changeAmountInput,
-    getAmountInput: (habitId: string): string => amountInputs[`${date}:${habitId}`] ?? '',
+    getAmountInput,
     getSaveState: (habitId: string): SaveState =>
       saveStates[`${date}:${habitId}`] ?? { pending: false },
   }

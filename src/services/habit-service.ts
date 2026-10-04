@@ -1,5 +1,5 @@
 import { db, type TaskTrackerDatabase } from '../db/database'
-import { isLocalDate, type LocalDate } from '../lib/local-date'
+import { assertEditableDate, isLocalDate, type LocalDate } from '../lib/local-date'
 import type { AmountHabit, BooleanHabit } from '../models/habit'
 import type { BooleanHabitEntry, BooleanHabitStatus, HabitEntry } from '../models/habit-entry'
 
@@ -11,6 +11,7 @@ export interface BooleanHabitWithStatus {
 export interface AmountHabitWithProgress {
   habit: AmountHabit
   value: number
+  hasEntry: boolean
   status: 'no-data' | 'in-progress' | 'success'
   progress: number
 }
@@ -37,6 +38,12 @@ function validateAmountDelta(delta: number): void {
   }
 }
 
+function validateAmountTotal(value: number): void {
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new Error('Введите целое неотрицательное количество. Число не должно быть слишком большим.')
+  }
+}
+
 function readAmountValue(entry: HabitEntry | undefined): number {
   if (!entry) return 0
   if (entry.type !== 'amount') throw new Error('Тип сохранённой записи не соответствует привычке.')
@@ -56,11 +63,38 @@ export function parseAmountInput(input: string): number {
   return value
 }
 
+export function parseAmountTotalInput(input: string): number {
+  const text = input.trim()
+  if (!/^\d+$/.test(text)) throw new Error('Введите целое неотрицательное количество.')
+  const value = Number(text)
+  validateAmountTotal(value)
+  return value
+}
+
+export function getAmountHabitProgress(habit: AmountHabit, entry: HabitEntry | undefined): AmountHabitWithProgress {
+  validateAmountTarget(habit.target)
+  const value = readAmountValue(entry)
+  return {
+    habit,
+    value,
+    hasEntry: entry !== undefined,
+    status: value >= habit.target ? 'success' : entry ? 'in-progress' : 'no-data',
+    progress: Math.min(100, (value / habit.target) * 100),
+  }
+}
+
 export class HabitService {
   private readonly database: TaskTrackerDatabase
 
   constructor(database: TaskTrackerDatabase) {
     this.database = database
+  }
+
+  async getEntriesForDateRange(startDate: LocalDate, endDate: LocalDate): Promise<HabitEntry[]> {
+    validateDate(startDate)
+    validateDate(endDate)
+    if (startDate > endDate) throw new Error('Начало периода не может быть позже конца.')
+    return this.database.habitEntries.where('date').between(startDate, endDate, true, true).toArray()
   }
 
   async getTodayHabits(date: LocalDate): Promise<BooleanHabitWithStatus[]> {
@@ -104,22 +138,13 @@ export class HabitService {
         return habits
           .filter((habit): habit is AmountHabit => habit.type === 'amount' && habit.archivedAt === null)
           .sort((first, second) => first.order - second.order)
-          .map((habit) => {
-            validateAmountTarget(habit.target)
-            const value = readAmountValue(entries.get(habit.id))
-            return {
-              habit,
-              value,
-              status: value >= habit.target ? 'success' : value > 0 ? 'in-progress' : 'no-data',
-              progress: Math.min(100, (value / habit.target) * 100),
-            }
-          })
+          .map((habit) => getAmountHabitProgress(habit, entries.get(habit.id)))
       },
     )
   }
 
   async addHabitAmount(habitId: string, date: LocalDate, delta: number): Promise<void> {
-    validateDate(date)
+    assertEditableDate(date)
     validateAmountDelta(delta)
 
     // Keep the read and increment in one transaction so simultaneous additions are retained.
@@ -140,6 +165,7 @@ export class HabitService {
         const now = new Date().toISOString()
 
         await this.database.habitEntries.put({
+          ...previous,
           habitId,
           date,
           type: 'amount',
@@ -151,12 +177,32 @@ export class HabitService {
     )
   }
 
+  async setHabitAmount(habitId: string, date: LocalDate, value: number): Promise<void> {
+    assertEditableDate(date)
+    validateAmountTotal(value)
+    await this.database.transaction('rw', this.database.habits, this.database.habitEntries, async () => {
+      const habit = await this.database.habits.get(habitId)
+      if (!habit) throw new Error('Привычка не найдена.')
+      if (habit.type !== 'amount') throw new Error('Эта привычка не поддерживает количественный ввод.')
+      if (habit.archivedAt !== null) throw new Error('Привычка находится в архиве.')
+      validateAmountTarget(habit.target)
+      const previous = await this.database.habitEntries.get([habitId, date])
+      readAmountValue(previous)
+      const now = new Date().toISOString()
+      await this.database.habitEntries.put({
+        ...previous,
+        habitId, date, type: 'amount', value,
+        createdAt: previous?.createdAt ?? now, updatedAt: now,
+      })
+    })
+  }
+
   async setBooleanHabitStatus(
     habitId: string,
     date: LocalDate,
     status: BooleanHabitStatus,
   ): Promise<void> {
-    validateDate(date)
+    assertEditableDate(date)
     validateStatus(status)
 
     await this.database.transaction(
@@ -170,9 +216,11 @@ export class HabitService {
         if (habit.archivedAt !== null) throw new Error('Привычка находится в архиве.')
 
         const previous = await this.database.habitEntries.get([habitId, date])
+        if (previous && previous.type !== 'boolean') throw new Error('Тип сохранённой записи не соответствует привычке.')
         const now = new Date().toISOString()
 
         await this.database.habitEntries.put({
+          ...previous,
           habitId,
           date,
           type: 'boolean',
@@ -186,6 +234,14 @@ export class HabitService {
 }
 
 const habitService = new HabitService(db)
+
+export function getEntriesForDateRange(startDate: LocalDate, endDate: LocalDate): Promise<HabitEntry[]> {
+  return habitService.getEntriesForDateRange(startDate, endDate)
+}
+
+export function setHabitAmount(habitId: string, date: LocalDate, value: number): Promise<void> {
+  return habitService.setHabitAmount(habitId, date, value)
+}
 
 export function getTodayHabits(date: LocalDate): Promise<BooleanHabitWithStatus[]> {
   return habitService.getTodayHabits(date)

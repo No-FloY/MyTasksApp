@@ -19,6 +19,6 @@ export const navigation = [
 export type PageId = (typeof navigation)[number]['id']
 
 export function getCurrentPage(): PageId {
-  const hash = window.location.hash.slice(1)
+  const hash = window.location.hash.slice(1).split('?')[0]
   return navigation.find((page) => page.id === hash)?.id ?? 'today'
 }

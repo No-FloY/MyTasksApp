@@ -1,5 +1,5 @@
 import { db, type TaskTrackerDatabase } from '../db/database'
-import { isLocalDate, type LocalDate } from '../lib/local-date'
+import { assertEditableDate, isLocalDate, type LocalDate } from '../lib/local-date'
 import type { DurationHabit } from '../models/habit'
 import type { HabitEntry } from '../models/habit-entry'
 import type { DurationRatingRange } from '../models/duration-rating'
@@ -114,7 +114,7 @@ export class DurationService {
   }
 
   async setHabitDuration(habitId: string, date: LocalDate, minutes: number): Promise<void> {
-    if (!isLocalDate(date)) throw new Error('Некорректная календарная дата.')
+    assertEditableDate(date)
     validateDuration(minutes)
     await this.database.transaction('rw', this.database.habits, this.database.habitEntries, async () => {
       const habit = await this.database.habits.get(habitId)
@@ -125,6 +125,7 @@ export class DurationService {
       readDurationMinutes(previous)
       const now = new Date().toISOString()
       await this.database.habitEntries.put({
+        ...previous,
         habitId, date, type: 'duration', minutes,
         createdAt: previous?.createdAt ?? now, updatedAt: now,
       })

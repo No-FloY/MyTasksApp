@@ -6,6 +6,7 @@ import { formatDuration, type DurationHabitWithRating } from '@/services/duratio
 import '../duration-tracker.css'
 
 interface DurationTrackerProps {
+  dayLabel?: string
   item: DurationHabitWithRating
   hours: string
   minutes: string
@@ -17,6 +18,7 @@ interface DurationTrackerProps {
 }
 
 export function DurationTracker({
+  dayLabel = 'Время за сегодня',
   item: { habit, minutes: savedMinutes, rating },
   hours,
   minutes,
@@ -41,7 +43,7 @@ export function DurationTracker({
           <span className="duration-icon"><Clock3 size={22} strokeWidth={1.6} aria-hidden="true" /></span>
           <div>
             <h2 id={titleId}>{habit.name}</h2>
-            <p>Время за сегодня</p>
+            <p>{dayLabel}</p>
           </div>
         </div>
 

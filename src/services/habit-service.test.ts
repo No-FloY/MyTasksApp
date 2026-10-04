@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TaskTrackerDatabase } from '../db/database'
 import { getLocalDate, type LocalDate } from '../lib/local-date'
 import type { BooleanHabitStatus } from '../models/habit-entry'
@@ -11,6 +11,8 @@ const today = getLocalDate(new Date(2026, 9, 2))
 const tomorrow = getLocalDate(new Date(2026, 9, 3))
 
 beforeEach(async () => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date(2026, 9, 4, 12))
   database = new TaskTrackerDatabase(`zadachnik-test-${crypto.randomUUID()}`)
   service = new HabitService(database)
   await database.open()
@@ -18,6 +20,27 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await database.delete()
+  vi.useRealTimers()
+})
+
+describe('past and future boolean writes', () => {
+  it('rejects a future day without writing a result', async () => {
+    await expect(service.setBooleanHabitStatus('english', getLocalDate(new Date(2026, 9, 5)), 'success'))
+      .rejects.toThrow('Будущий день')
+    expect(await database.habitEntries.count()).toBe(0)
+  })
+
+  it('preserves additional record fields when editing a past result', async () => {
+    const entry = {
+      habitId: 'english', date: today, type: 'boolean' as const, status: 'success' as const,
+      createdAt: '2026-10-01T10:00:00.000Z', updatedAt: '2026-10-01T10:00:00.000Z', note: 'Старая запись',
+    }
+    await database.habitEntries.put(entry)
+    await service.setBooleanHabitStatus('english', today, 'failure')
+    expect(await database.habitEntries.get(['english', today])).toMatchObject({
+      status: 'failure', note: 'Старая запись', createdAt: entry.createdAt,
+    })
+  })
 })
 
 describe('initial database', () => {
