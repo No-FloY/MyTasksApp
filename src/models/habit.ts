@@ -1,3 +1,5 @@
+import type { DurationRatingRange } from './duration-rating'
+
 interface HabitBase {
   id: string
   name: string
@@ -21,6 +23,7 @@ export interface AmountHabit extends HabitBase {
 export interface DurationHabit extends HabitBase {
   type: 'duration'
   unit: 'minutes'
+  ratingRanges: DurationRatingRange[]
 }
 
 export interface RatingHabit extends HabitBase {

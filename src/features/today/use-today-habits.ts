@@ -4,6 +4,10 @@ import { initializeDatabase } from '@/db/database'
 import { getLocalDate, type LocalDate } from '@/lib/local-date'
 import type { BooleanHabitStatus } from '@/models/habit-entry'
 import {
+  getDurationInput, getTodayDurationHabits, parseDurationInput, setHabitDuration,
+  type DurationHabitWithRating, type DurationInput,
+} from '@/services/duration-service'
+import {
   addHabitAmount,
   getTodayAmountHabits,
   getTodayHabits,
@@ -20,6 +24,7 @@ type ReadState =
       status: 'ready'
       habits: BooleanHabitWithStatus[]
       amountHabits: AmountHabitWithProgress[]
+      durationHabits: DurationHabitWithRating[]
     }
   | { date: LocalDate; attempt: number; status: 'error' }
 
@@ -33,6 +38,7 @@ export function useTodayHabits(date: LocalDate) {
   const [readState, setReadState] = useState<ReadState | null>(null)
   const [saveStates, setSaveStates] = useState<Record<string, SaveState>>({})
   const [amountInputs, setAmountInputs] = useState<Record<string, string>>({})
+  const [durationInputs, setDurationInputs] = useState<Record<string, DurationInput>>({})
   const writesInFlight = useRef(new Set<string>())
 
   useEffect(() => {
@@ -45,9 +51,10 @@ export function useTodayHabits(date: LocalDate) {
         subscription = liveQuery(() => Promise.all([
           getTodayHabits(date),
           getTodayAmountHabits(date),
+          getTodayDurationHabits(date),
         ])).subscribe({
-          next: ([habits, amountHabits]) => {
-            if (active) setReadState({ date, attempt, status: 'ready', habits, amountHabits })
+          next: ([habits, amountHabits, durationHabits]) => {
+            if (active) setReadState({ date, attempt, status: 'ready', habits, amountHabits, durationHabits })
           },
           error: () => {
             if (active) setReadState({ date, attempt, status: 'error' })
@@ -150,10 +157,51 @@ export function useTodayHabits(date: LocalDate) {
 
   const currentState = readState?.date === date && readState.attempt === attempt ? readState : null
   const habits = currentState?.status === 'ready' ? currentState.habits : []
+  const durationHabits = currentState?.status === 'ready' ? currentState.durationHabits : []
+
+  function getDurationDraft(habitId: string): DurationInput {
+    return durationInputs[`${date}:${habitId}`]
+      ?? getDurationInput(durationHabits.find((item) => item.habit.id === habitId)?.minutes ?? null)
+  }
+
+  function changeDurationInput(habitId: string, field: keyof DurationInput, value: string) {
+    const key = `${date}:${habitId}`
+    if (writesInFlight.current.has(key)) return
+    const draft = { ...getDurationDraft(habitId), [field]: value }
+    setDurationInputs((current) => ({ ...current, [key]: draft }))
+    setSaveStates((current) => ({ ...current, [key]: { pending: false } }))
+  }
+
+  function submitDuration(habitId: string) {
+    const key = `${date}:${habitId}`
+    if (writesInFlight.current.has(key)) return
+    const input = getDurationDraft(habitId)
+    let minutes: number
+    try {
+      minutes = parseDurationInput(input.hours, input.minutes)
+    } catch (error) {
+      setSaveStates((current) => ({ ...current, [key]: {
+        pending: false,
+        error: error instanceof Error ? error.message : 'Проверьте введённое время.',
+      } }))
+      return
+    }
+    persist(habitId, () => setHabitDuration(habitId, date, minutes),
+      'Не удалось сохранить время. Введённое значение осталось в форме. Попробуйте ещё раз.',
+      () => setDurationInputs((current) => {
+        const next = { ...current }
+        delete next[key]
+        return next
+      }))
+  }
 
   return {
     habits,
     amountHabits: currentState?.status === 'ready' ? currentState.amountHabits : [],
+    durationHabits,
+    getDurationDraft,
+    changeDurationInput,
+    submitDuration,
     loading: currentState === null,
     error: currentState?.status === 'error',
     retry: () => setAttempt((current) => current + 1),

@@ -5,6 +5,7 @@ import { useLocalDate } from '@/hooks/use-local-date'
 import { formatLocalDate } from '@/lib/local-date'
 import { HabitRow } from './components/HabitRow'
 import { AmountTracker } from './components/AmountTracker'
+import { DurationTracker } from './components/DurationTracker'
 import { useTodayHabits } from './use-today-habits'
 
 export function TodayPage() {
@@ -12,6 +13,7 @@ export function TodayPage() {
   const {
     habits, amountHabits, loading, error, retry, saveStatus, getSaveState,
     addAmount, submitAmount, changeAmountInput, getAmountInput,
+    durationHabits, getDurationDraft, changeDurationInput, submitDuration,
   } = useTodayHabits(date)
 
   return (
@@ -40,6 +42,26 @@ export function TodayPage() {
           />
         )
       })}
+
+      {durationHabits.length > 0 && (
+        <div className="duration-trackers">
+          {durationHabits.map((item) => {
+            const saveState = getSaveState(item.habit.id)
+            const input = getDurationDraft(item.habit.id)
+            return <DurationTracker
+              key={`${date}:${item.habit.id}`}
+              item={item}
+              hours={input.hours}
+              minutes={input.minutes}
+              pending={saveState.pending}
+              error={saveState.error}
+              onHoursChange={(value) => changeDurationInput(item.habit.id, 'hours', value)}
+              onMinutesChange={(value) => changeDurationInput(item.habit.id, 'minutes', value)}
+              onSubmit={() => submitDuration(item.habit.id)}
+            />
+          })}
+        </div>
+      )}
 
       <Card className="habits-card">
         <div className="habits-card-heading">

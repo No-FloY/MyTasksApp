@@ -181,8 +181,12 @@ test('keeps all six navigation items usable on a narrow screen without horizonta
   for (const name of ['Календарь', 'Задачи', 'Цели', 'Статистика', 'Настройки']) {
     await navigation.getByRole('link', { name, exact: true }).click()
     await expect(page.getByRole('heading', { name, exact: true, level: 1 })).toBeVisible()
-    await expect(page.getByText('Этот раздел появится на следующих этапах разработки.', { exact: false }))
-      .toBeVisible()
+    if (name === 'Статистика') {
+      await expect(page.locator('[data-duration-statistics-id="gaming"]')).toBeVisible()
+    } else {
+      await expect(page.getByText('Этот раздел появится на следующих этапах разработки.', { exact: false }))
+        .toBeVisible()
+    }
     await expect(navigation.getByRole('link', { name, exact: true })).toHaveAttribute('aria-current', 'page')
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   }

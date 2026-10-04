@@ -1,4 +1,5 @@
 import type { Habit } from '../models/habit'
+import { getInitialDurationRanges } from './duration-defaults'
 
 /** Real starting configuration; results are only created by the user's actions. */
 export function createInitialHabits(now: string = new Date().toISOString()): Habit[] {
@@ -86,6 +87,7 @@ export function createInitialHabits(now: string = new Date().toISOString()): Hab
       name: 'Время в играх',
       description: 'Фактическое время в минутах',
       unit: 'minutes',
+      ratingRanges: getInitialDurationRanges('gaming'),
       order: 9,
     },
     {
@@ -95,6 +97,7 @@ export function createInitialHabits(now: string = new Date().toISOString()): Hab
       name: 'Время в социальных сетях',
       description: 'Фактическое время в минутах',
       unit: 'minutes',
+      ratingRanges: getInitialDurationRanges('social-media'),
       order: 10,
     },
   ]

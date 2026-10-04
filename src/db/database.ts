@@ -3,6 +3,7 @@ import type { LocalDate } from '../lib/local-date'
 import type { Habit } from '../models/habit'
 import type { HabitEntry } from '../models/habit-entry'
 import { createInitialHabits } from './seed'
+import { getInitialDurationRanges } from './duration-defaults'
 
 export class TaskTrackerDatabase extends Dexie {
   habits!: Table<Habit, string>
@@ -14,6 +15,18 @@ export class TaskTrackerDatabase extends Dexie {
     this.version(1).stores({
       habits: 'id, type, order',
       habitEntries: '[habitId+date], habitId, date, type',
+    })
+
+    this.version(2).stores({
+      habits: 'id, type, order',
+      habitEntries: '[habitId+date], habitId, date, type',
+    }).upgrade(async (transaction) => {
+      await transaction.table<Habit>('habits').where('id').anyOf('gaming', 'social-media')
+        .modify((habit) => {
+          if (habit.type === 'duration' && habit.ratingRanges === undefined) {
+            habit.ratingRanges = getInitialDurationRanges(habit.id)
+          }
+        })
     })
 
     // populate runs once, in the creation transaction. Reopening never resets data.
