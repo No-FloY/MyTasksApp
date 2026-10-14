@@ -57,7 +57,7 @@ test('seeds universal habits once and preserves all three boolean states after r
   }
 
   const initial = await readDatabase(page)
-  expect(initial.stores.sort()).toEqual(['habitEntries', 'habits'])
+  expect(initial.stores.sort()).toEqual(['habitEntries', 'habits', 'tasks'])
   expect(initial.habits).toHaveLength(11)
   expect(initial.habits.filter((habit) => habit.type === 'boolean')).toHaveLength(8)
   expect(initial.habits).toEqual(expect.arrayContaining([
@@ -156,8 +156,8 @@ test('shows a recoverable error when the browser denies IndexedDB access', async
     })
   })
   await page.goto('/')
-  await expect(page.getByRole('alert')).toBeVisible()
-  await expect(page.getByRole('button', { name: /Повторить|Попробовать снова/i })).toBeVisible()
+  await expect(page.locator('.habits-card').getByRole('alert')).toBeVisible()
+  await expect(page.locator('.habits-card').getByRole('button', { name: /Повторить|Попробовать снова/i })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Успех', exact: true })).toHaveCount(0)
 })
 
@@ -166,8 +166,8 @@ test('handles a browser without the IndexedDB API', async ({ page }) => {
     Object.defineProperty(window, 'indexedDB', { value: undefined })
   })
   await page.goto('/')
-  await expect(page.getByRole('alert')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Повторить загрузку' })).toBeVisible()
+  await expect(page.locator('.habits-card').getByRole('alert')).toBeVisible()
+  await expect(page.locator('.habits-card').getByRole('button', { name: 'Повторить загрузку' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Успех', exact: true })).toHaveCount(0)
 })
 
@@ -186,6 +186,8 @@ test('keeps all six navigation items usable on a narrow screen without horizonta
     } else if (name === 'Календарь') {
       await expect(page.getByTestId('calendar-month')).toBeVisible()
       await expect(page.locator('[data-calendar-date][aria-current="date"]')).toBeVisible()
+    } else if (name === 'Задачи') {
+      await expect(page.getByRole('button', { name: 'Добавить задачу', exact: true })).toBeVisible()
     } else {
       await expect(page.getByText('Этот раздел появится на следующих этапах разработки.', { exact: false }))
         .toBeVisible()

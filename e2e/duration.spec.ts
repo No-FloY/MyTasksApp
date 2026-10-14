@@ -169,8 +169,8 @@ test('migrates the existing version-one database without losing boolean, water o
       }
     }
   }))
-  expect(migrated.version).toBe(20)
-  expect(migrated.stores.sort()).toEqual(['habitEntries', 'habits'])
+  expect(migrated.version).toBe(30)
+  expect(migrated.stores.sort()).toEqual(['habitEntries', 'habits', 'tasks'])
   expect(migrated.habits).toHaveLength(11)
   expect(migrated.habits).toEqual(expect.arrayContaining(initialHabits))
   expect(await readEntries(page)).toHaveLength(legacyEntries.length)

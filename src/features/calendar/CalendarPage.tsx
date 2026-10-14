@@ -4,6 +4,7 @@ import { ru } from 'date-fns/locale'
 import { AlertCircle, CalendarDays, ChevronLeft, ChevronRight, LoaderCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DayHabits } from '@/features/habits/DayHabits'
+import { DayTaskPanel } from '@/features/tasks/DayTaskPanel'
 import { useLocalDate } from '@/hooks/use-local-date'
 import { getCalendarMonth, shiftCalendarMonth } from '@/lib/calendar'
 import { getLocalDate, isFutureDate, type LocalDate } from '@/lib/local-date'
@@ -101,6 +102,7 @@ export default function CalendarPage() {
         <h2 id="selected-date-title"><time dateTime={selectedDate}>{format(parseISO(selectedDate), 'd MMMM yyyy', { locale: ru })}</time></h2>
         <p>{future ? 'Этот день ещё не наступил' : 'Изменения сохраняются для этой даты и сразу учитываются в статистике.'}</p>
       </div>
+      {initialized && <DayTaskPanel key={`tasks:${selectedDate}`} date={selectedDate} today={today} mode="calendar" />}
       {!future && initialized && <>
         <DayHabits key={selectedDate} date={selectedDate} mode="calendar" />
         <DayInsights key={`insights:${selectedDate}`} date={selectedDate} />

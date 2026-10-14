@@ -6,6 +6,7 @@ import { PlannedPage } from './PlannedPage'
 
 const StatisticsPage = lazy(() => import('@/features/statistics/StatisticsPage'))
 const CalendarPage = lazy(() => import('@/features/calendar/CalendarPage'))
+const TasksPage = lazy(() => import('@/features/tasks/TasksPage'))
 
 export default function App() {
   const currentPage = useCurrentPage()
@@ -16,6 +17,8 @@ export default function App() {
         ? <Suspense fallback={<p role="status">Загружаем статистику…</p>}><StatisticsPage /></Suspense>
         : currentPage === 'calendar'
           ? <Suspense fallback={<p role="status">Загружаем календарь…</p>}><CalendarPage /></Suspense>
+          : currentPage === 'tasks'
+            ? <Suspense fallback={<p role="status">Загружаем задачи…</p>}><TasksPage /></Suspense>
         : <PlannedPage page={currentPage} />}
     </AppLayout>
   )

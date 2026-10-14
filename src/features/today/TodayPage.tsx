@@ -2,6 +2,7 @@ import { ArrowRight, Info, Sun } from 'lucide-react'
 import { useLocalDate } from '@/hooks/use-local-date'
 import { formatLocalDate } from '@/lib/local-date'
 import { DayHabits } from '@/features/habits/DayHabits'
+import { DayTaskPanel } from '@/features/tasks/DayTaskPanel'
 
 export function TodayPage() {
   const date = useLocalDate()
@@ -16,6 +17,7 @@ export function TodayPage() {
         <div className="day-note"><span>НОВЫЙ ДЕНЬ — НОВЫЙ ШАГ</span><p>Не идеально.<br />Просто последовательно.</p><ArrowRight size={20} strokeWidth={1.5} aria-hidden="true" /></div>
       </section>
 
+      <DayTaskPanel key={`tasks:${date}`} date={date} today={date} mode="today" />
       <DayHabits key={date} date={date} mode="today" />
 
       <div className="gentle-reminder"><Info size={18} strokeWidth={1.7} aria-hidden="true" /><p><strong>Не каждый день должен быть идеальным.</strong> «Нет данных» — это отсутствие оценки, а не неудача. Любую отметку за сегодня можно изменить.</p></div>

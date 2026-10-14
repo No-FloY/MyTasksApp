@@ -156,7 +156,7 @@ describe('calendar month data from existing IndexedDB tables', () => {
     expect(data.entries).toEqual(before)
     expect(data.summaries[selectedDate]).toMatchObject({ status: 'no-data', total: 10, failures: 0 })
     expect(await database.habitEntries.toArray()).toEqual(before)
-    expect(database.tables.map((table) => table.name).sort()).toEqual(['habitEntries', 'habits'])
+    expect(database.tables.map((table) => table.name).sort()).toEqual(['habitEntries', 'habits', 'tasks'])
   })
 
   it('recomputes through liveQuery after a historical write and creates no persisted summaries', async () => {
