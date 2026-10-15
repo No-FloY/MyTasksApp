@@ -272,7 +272,8 @@ Production опубликован и проверен в Chrome и WebKit/iPhone
 
 # Этап 6 — Цели
 
-Статус: реализация и локальные проверки завершены; ожидается commit/push и проверка production.
+Статус: Completed — реализация, проверки, commit и push завершены.
+Production опубликован и проверен в Chrome и WebKit/iPhone.
 
 Объём: отдельные цели с необязательным дедлайном, статусами, архивом,
 boolean/amount-этапами, AUTO/MANUAL-прогрессом и связями с существующими задачами.
@@ -290,7 +291,7 @@ AUTO использует равные веса этапов; без этапо�
 - [x] Unit-тесты, включая конкурентные изменения, rollback и локальные даты/DST
 - [x] TypeScript, lint и production build
 - [x] Завершающая проверка E2E, mobile/WebKit и сохранения предыдущего функционала
-- [ ] Commit, push в main и проверка production
+- [x] Commit, push в main и проверка production
 
 Проверено локально 2026-10-15:
 
@@ -310,6 +311,19 @@ AUTO использует равные веса этапов; без этапо�
   и восстановление фокуса. Просмотрены desktop/mobile-снимки.
 - Физический iPhone не проверялся. Drag-and-drop, несколько целей на задачу,
   полная статистика, backup, PWA и синхронизация не входят в этот этап.
+
+Проверено на production 2026-10-15:
+
+- Commit `b395fd1` (`feat: add goals and milestones`) отправлен в `origin/main`.
+  GitHub status Vercel для этого commit — success, «Deployment has completed».
+- [Production](https://my-tasks-app-xi.vercel.app/) отдаёт новый раздел целей;
+  HTML и JavaScript доступны по HTTPS с HTTP 200.
+- Полный `npm run test:e2e` с production base URL — 115 passed, 1 skipped
+  (4,2 минуты): все сценарии прежних этапов и 16 новых в Chrome/WebKit.
+  Причина единственного прежнего пропуска указана выше.
+- Проверки используют изолированные браузерные контексты с тестовыми данными;
+  личное хранилище пользователя не изменялось. Ошибок JavaScript не обнаружено.
+- Этап 7 не начат.
 
 После завершения этапа остановиться.
 
