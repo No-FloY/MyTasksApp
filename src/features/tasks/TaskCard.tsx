@@ -17,9 +17,10 @@ interface TaskCardProps {
   onEdit?: (task: Task) => void
   onDelete?: (task: Task) => void
   compact?: boolean
+  highlighted?: boolean
 }
 
-export function TaskCard({ task, today, onToggle, pending, error, onEdit, onDelete, compact = false }: TaskCardProps) {
+export function TaskCard({ task, today, onToggle, pending, error, onEdit, onDelete, compact = false, highlighted = false }: TaskCardProps) {
   const titleId = useId()
   const actionsRef = useRef<HTMLDetailsElement>(null)
   const completed = task.status === 'completed'
@@ -35,7 +36,7 @@ export function TaskCard({ task, today, onToggle, pending, error, onEdit, onDele
     action(task)
   }
   return (
-    <article className={`task-card${completed ? ' is-completed' : ''}${compact ? ' is-compact' : ''}`} data-task-id={task.id} aria-labelledby={titleId}>
+    <article id={compact ? undefined : `task-${task.id}`} tabIndex={-1} className={`task-card${completed ? ' is-completed' : ''}${compact ? ' is-compact' : ''}${highlighted ? ' is-highlighted' : ''}`} data-task-id={task.id} data-task-selected={highlighted || undefined} aria-labelledby={titleId}>
       <div className="task-card-main">
         {onToggle && (
           <Button
@@ -72,6 +73,7 @@ export function TaskCard({ task, today, onToggle, pending, error, onEdit, onDele
         )}
       </div>
       {!compact && task.description && <p className="task-description">{task.description}</p>}
+      {task.goalId && <a className="task-goal-link" href={`#goals?id=${encodeURIComponent(task.goalId)}`}>Перейти к цели</a>}
       {error && <p className="task-error" role="alert">{error}</p>}
     </article>
   )

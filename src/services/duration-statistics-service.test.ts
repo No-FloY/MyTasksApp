@@ -187,7 +187,7 @@ describe('weekly duration statistics from IndexedDB', () => {
     await service.getWeeklyStatistics(endDate)
     expect(await database.habits.toArray()).toEqual(originalHabits)
     expect(await database.habitEntries.toArray()).toEqual(originalEntries)
-    expect(database.tables.map((table) => table.name).sort()).toEqual(['habitEntries', 'habits', 'tasks'])
+    expect(database.tables.map((table) => table.name).sort()).toEqual(['goalMilestones', 'goals', 'habitEntries', 'habits', 'tasks'])
     expect(await database.habitEntries.count()).toBe(11)
   })
 

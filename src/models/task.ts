@@ -14,6 +14,8 @@ export interface Task {
   createdAt: string
   updatedAt: string
   completedAt: string | null
+  /** Absent in pre-v4 rows; a task belongs to at most one goal. */
+  goalId?: string | null
 }
 
 /** Editable fields only: identity and completion are owned by the service. */

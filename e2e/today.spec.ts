@@ -57,7 +57,7 @@ test('seeds universal habits once and preserves all three boolean states after r
   }
 
   const initial = await readDatabase(page)
-  expect(initial.stores.sort()).toEqual(['habitEntries', 'habits', 'tasks'])
+  expect(initial.stores.sort()).toEqual(['goalMilestones', 'goals', 'habitEntries', 'habits', 'tasks'])
   expect(initial.habits).toHaveLength(11)
   expect(initial.habits.filter((habit) => habit.type === 'boolean')).toHaveLength(8)
   expect(initial.habits).toEqual(expect.arrayContaining([
@@ -188,6 +188,8 @@ test('keeps all six navigation items usable on a narrow screen without horizonta
       await expect(page.locator('[data-calendar-date][aria-current="date"]')).toBeVisible()
     } else if (name === 'Задачи') {
       await expect(page.getByRole('button', { name: 'Добавить задачу', exact: true })).toBeVisible()
+    } else if (name === 'Цели') {
+      await expect(page.getByRole('button', { name: 'Добавить цель', exact: true })).toBeVisible()
     } else {
       await expect(page.getByText('Этот раздел появится на следующих этапах разработки.', { exact: false }))
         .toBeVisible()

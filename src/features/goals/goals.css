@@ -1,0 +1,57 @@
+.goals-page, .goal-details, .goal-section { min-width: 0; }
+.goals-page button { max-width: 100%; white-space: normal; height: auto; min-height: 44px; }
+.goal-back { margin: -8px 0 20px -12px; }
+.goal-list { display: grid; gap: 13px; list-style: none; padding: 0; margin: 0; }
+.goal-list > li { min-width: 0; }
+.goal-card, .goal-overview { min-width: 0; padding: 19px 16px; border: 1px solid #e4e8de; border-radius: 13px; background: #fff; }
+.goal-card-link { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; min-height: 44px; padding: 3px 0 9px; }
+.goal-card-link h3 { min-width: 0; margin: 0; font-size: 17px; font-weight: 600; line-height: 1.5; color: #42533c; overflow-wrap: anywhere; }
+.goal-card-link > svg { flex-shrink: 0; margin-top: 4px; color: #69815b; }
+.goal-card-meta, .goal-badges { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; color: #6d7a60; font-size: 12px; }
+.goal-badge { padding: 3px 8px; border-radius: 5px; background: #f1f4ed; color: #607153; line-height: 1.5; }
+.goal-status-completed { background: #eaf2e2; color: #4e6c40; }
+.goal-status-failed, .goal-overdue { color: #a05448; }
+.goal-status-failed, .goal-badge.goal-overdue { background: #fbedeb; }
+.goal-status-cancelled { background: #f0f1ee; color: #6d7467; }
+.goal-card-deadline, .goal-deadline { color: #69745f; font-size: 13px; line-height: 1.7; }
+.goal-card-deadline { margin: 12px 0 17px; }
+.goal-progress { min-width: 0; }
+.goal-progress-label { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 8px; color: #69745f; font-size: 12px; }
+.goal-progress-label strong { color: #425d3b; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.goal-progress-track { height: 9px; overflow: hidden; border-radius: 10px; background: #eef2e8; }
+.goal-progress-track > span { display: block; height: 100%; border-radius: inherit; background: #779365; }
+.goal-hint { margin: 11px 0 0; color: #6d7a60; font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+.task-form-fields > .goal-hint { margin: 0; }
+.goal-details { display: grid; gap: 26px; }
+.goal-overview h1 { margin-top: 16px; font-size: 28px; line-height: 1.3; letter-spacing: -.7px; overflow-wrap: anywhere; }
+.goal-description { margin: 14px 0 0; color: #62715a; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.8; }
+.goal-deadline { display: flex; flex-wrap: wrap; gap: 5px 16px; margin: 18px 0; }
+.goal-controls { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; margin-top: 24px; padding-top: 21px; border-top: 1px solid #edf0e8; }
+.goal-status-field { flex: 1 1 100%; }
+.goal-controls button { flex: 1 1 auto; }
+.goal-section-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 15px; margin-bottom: 14px; }
+.goal-section-heading h2 { margin: 0; font-size: 19px; font-weight: 600; color: #42533c; }
+.goal-section-heading p { margin: 5px 0 0; font-size: 12px; line-height: 1.7; color: #6d7a60; }
+.goal-milestones, .goal-task-list { display: grid; gap: 9px; margin: 0; padding: 0; list-style: none; }
+.goal-milestone, .goal-linked-task { min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px; border: 1px solid #e4e8de; border-radius: 11px; background: #fff; }
+.goal-milestone-main { flex: 1 1 180px; min-width: 0; display: flex; gap: 10px; align-items: flex-start; }
+.goal-milestone-copy { flex: 1; min-width: 0; }
+.goal-milestone h3 { margin: 0; font-size: 14px; font-weight: 550; line-height: 1.6; color: #42533c; overflow-wrap: anywhere; }
+.goal-milestone p, .goal-linked-task p { margin: 5px 0 0; font-size: 12px; color: #6d7a60; line-height: 1.6; overflow-wrap: anywhere; }
+.goal-amount-mark { display: grid; flex: 0 0 44px; place-items: center; width: 44px; height: 44px; border: 1px solid #e4e8de; border-radius: 9px; color: #69815b; }
+.goal-milestone.is-completed .goal-amount-mark { background: #edf3e7; }
+.goal-row-actions { display: flex; margin-left: auto; gap: 3px; }
+.goal-row-actions button { min-width: 44px; width: 44px; }
+.goal-linked-task-copy { flex: 1 1 160px; min-width: 0; }
+.goal-linked-task a { display: flex; align-items: center; min-height: 44px; font-size: 14px; line-height: 1.5; color: #355847; text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.goal-action-error { display: grid; justify-items: start; gap: 10px; padding: 14px; border: 1px solid #edccc5; border-radius: 10px; background: #fff9f7; }
+.goal-action-error .task-error { margin: 0; }
+.goal-dialog .task-field select { text-overflow: ellipsis; }
+@media (min-width: 600px) {
+  .goal-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .goal-card, .goal-overview { padding: 23px; }
+  .goal-overview h1 { font-size: 34px; }
+  .goal-status-field { flex: 1 1 200px; max-width: 250px; }
+  .goal-controls button { flex: 0 1 auto; }
+  .goal-milestone, .goal-linked-task { padding: 15px; }
+}

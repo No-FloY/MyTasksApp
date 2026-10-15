@@ -3,6 +3,7 @@ import type { LocalDate } from '../lib/local-date'
 import type { Habit } from '../models/habit'
 import type { HabitEntry } from '../models/habit-entry'
 import type { Task } from '../models/task'
+import type { Goal, GoalMilestone } from '../models/goal'
 import { createInitialHabits } from './seed'
 import { getInitialDurationRanges } from './duration-defaults'
 
@@ -10,6 +11,8 @@ export class TaskTrackerDatabase extends Dexie {
   habits!: Table<Habit, string>
   habitEntries!: Table<HabitEntry, [string, LocalDate]>
   tasks!: Table<Task, string>
+  goals!: Table<Goal, string>
+  goalMilestones!: Table<GoalMilestone, string>
 
   constructor(name: string = 'zadachnik') {
     super(name)
@@ -36,6 +39,16 @@ export class TaskTrackerDatabase extends Dexie {
       habits: 'id, type, order',
       habitEntries: '[habitId+date], habitId, date, type',
       tasks: 'id, date, status',
+    })
+
+    // New stores and an optional task index require no rewriting of legacy rows.
+    // Existing tasks without goalId remain unlinked and all history is preserved.
+    this.version(4).stores({
+      habits: 'id, type, order',
+      habitEntries: '[habitId+date], habitId, date, type',
+      tasks: 'id, date, status, goalId',
+      goals: 'id, status, deadline',
+      goalMilestones: 'id, goalId, [goalId+order]',
     })
 
     // populate runs once, in the creation transaction. Reopening never resets data.

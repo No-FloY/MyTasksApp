@@ -1,4 +1,6 @@
 .tasks-page { min-width: 0; }
+.task-card.is-highlighted, .task-card:focus-visible { outline: 2px solid #739379; outline-offset: 3px; }
+.task-goal-link { display: inline-flex; align-items: center; min-height: 44px; margin-top: 6px; color: #355847; font-size: 13px; text-decoration: underline; text-underline-offset: 3px; }
 .tasks-page-heading { display: flex; flex-direction: column; align-items: flex-start; gap: 21px; margin-bottom: 28px; }
 .tasks-page-heading .eyebrow { margin: 0 0 12px; }
 .task-groups { display: grid; gap: 26px; }

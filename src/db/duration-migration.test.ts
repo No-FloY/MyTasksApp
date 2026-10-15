@@ -78,7 +78,7 @@ describe('duration configuration migration from IndexedDB v1 to v2', () => {
     const originalWater = await legacy.habits.get('water')
     const current = await upgrade(legacy)
 
-    expect(current.verno).toBe(3)
+    expect(current.verno).toBe(4)
     expect(await current.habits.count()).toBe(11)
     expect(await current.habitEntries.count()).toBe(entries.length)
     expect(await current.habits.get('gaming')).toEqual({
