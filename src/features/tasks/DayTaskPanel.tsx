@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useCurrentTime } from '@/hooks/use-current-time'
 import type { LocalDate } from '@/lib/local-date'
 import type { Task } from '@/models/task'
 import { TaskCard } from './TaskCard'
@@ -9,12 +10,13 @@ import { useTaskActions } from './use-task-actions'
 import './tasks.css'
 import './day-task-panel.css'
 
-export function DayTaskPanel({ date, today, mode }: {
+export function DayTaskPanel({ date, mode }: {
   date: LocalDate
   today: LocalDate
   mode: 'today' | 'calendar'
 }) {
   const { tasks, loading, error, retry } = useTasks(date)
+  const now = useCurrentTime()
   const { toggleTask, pendingIds, errors } = useTaskActions()
   const completionFocus = useRef<string | null>(null)
   const heading = useRef<HTMLHeadingElement>(null)
@@ -49,7 +51,7 @@ export function DayTaskPanel({ date, today, mode }: {
           : `Всего: ${displayed.length} · Выполнено: ${displayed.filter((task) => task.status === 'completed').length}`}</p>
         <ul className="task-list">
           {displayed.map((task) => <li key={task.id}><TaskCard
-            task={task} today={today} compact
+            task={task} now={now} compact
             onToggle={mode === 'today' ? (item) => { void complete(item) } : undefined}
             pending={pendingIds.has(task.id)} error={errors[task.id]}
           /></li>)}

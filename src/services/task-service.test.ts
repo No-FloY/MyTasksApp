@@ -4,7 +4,7 @@ import { TaskTrackerDatabase } from '../db/database'
 import { getLocalDate, isLocalDate, type LocalDate } from '../lib/local-date'
 import type { Task, TaskInput } from '../models/task'
 import {
-  getTaskValidationErrors, groupTasks, isTaskOverdue,
+  getTaskDeadline, getTaskOutcome, getTaskValidationErrors, groupTasks, isTaskOverdue,
   MAX_TASK_DESCRIPTION_LENGTH, MAX_TASK_TITLE_LENGTH, sortTasks, TaskService,
 } from './task-service'
 
@@ -182,6 +182,78 @@ describe('TaskService persistence and validation', () => {
     expect(completed.completedAt).toBe(new Date().toISOString())
   })
 
+  it.each(['failed', 'cancelled'] as const)('persists %s as a terminal state without altering historical task data', async (status) => {
+    const oldActive = fixture('old-active', { goalId: 'existing-goal' })
+    const oldCompleted = fixture('old-completed', { status: 'completed', completedAt: createdAt })
+    await database.tasks.bulkAdd([oldActive, oldCompleted])
+    const beforeVersion = database.verno
+    vi.setSystemTime(new Date(2026, 9, 4, 13))
+    const changed = status === 'failed' ? await service.failTask(oldActive.id) : await service.cancelTask(oldActive.id)
+    expect(changed).toEqual({ ...oldActive, status, completedAt: null, updatedAt: new Date().toISOString() })
+    expect(await service.getTask(oldCompleted.id)).toEqual(oldCompleted)
+    vi.setSystemTime(new Date(2026, 9, 4, 14))
+    expect(status === 'failed' ? await service.failTask(changed.id) : await service.cancelTask(changed.id)).toEqual(changed)
+    await expect(service.completeTask(changed.id)).rejects.toThrow('конечное состояние')
+    await expect(service.reopenTask(changed.id)).rejects.toThrow('конечное состояние')
+    await expect(status === 'failed' ? service.cancelTask(changed.id) : service.failTask(changed.id)).rejects.toThrow('конечное состояние')
+    const edited = await service.updateTask(changed.id, { ...input, title: 'Уточнённое описание' })
+    expect(edited).toMatchObject({ status, completedAt: null, goalId: oldActive.goalId })
+    database.close()
+    await database.open()
+    expect(database.verno).toBe(beforeVersion)
+    expect(await service.getTask(changed.id)).toEqual(edited)
+    expect(await service.getTask(oldCompleted.id)).toEqual(oldCompleted)
+  })
+
+  it('rejects a stale final action on a completed task rather than losing its completion', async () => {
+    const task = await service.createTask(input)
+    const completed = await service.completeTask(task.id)
+    await expect(service.failTask(task.id)).rejects.toThrow('уже выполнена')
+    await expect(service.cancelTask(task.id)).rejects.toThrow('уже выполнена')
+    expect(await service.getTask(task.id)).toEqual(completed)
+  })
+
+  it('serializes competing final actions across connections without replacing the winning state', async () => {
+    const task = await service.createTask(input)
+    const other = new TaskTrackerDatabase(database.name)
+    try {
+      await other.open()
+      const results = await Promise.allSettled([service.failTask(task.id), new TaskService(other).cancelTask(task.id)])
+      expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
+      expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1)
+      expect(await service.getTask(task.id)).toMatchObject({ status: expect.stringMatching(/^(failed|cancelled)$/), completedAt: null })
+    } finally { other.close() }
+  })
+
+  it.each(['failed', 'cancelled'] as const)('preserves concurrent edits and goal links when closing as %s', async (status) => {
+    const task = fixture('linked-task', { goalId: 'existing-goal' })
+    await database.tasks.add(task)
+    const other = new TaskTrackerDatabase(database.name)
+    try {
+      await other.open()
+      const otherService = new TaskService(other)
+      await Promise.all([
+        service.updateTask(task.id, { ...input, title: 'Уточнённая задача', description: 'Описание сохранено', time: '13:15' }),
+        status === 'failed' ? otherService.failTask(task.id) : otherService.cancelTask(task.id),
+      ])
+      expect(await service.getTask(task.id)).toMatchObject({
+        id: task.id, createdAt: task.createdAt, goalId: task.goalId, title: 'Уточнённая задача',
+        description: 'Описание сохранено', time: '13:15', status, completedAt: null,
+      })
+    } finally { other.close() }
+  })
+
+  it.each(['failed', 'cancelled'] as const)('leaves the active record intact after a failed %s write and allows retry', async (status) => {
+    const task = await service.createTask(input)
+    const write = vi.spyOn(database.tasks, 'put').mockRejectedValueOnce(new Error('Storage full'))
+    const close = () => status === 'failed' ? service.failTask(task.id) : service.cancelTask(task.id)
+    await expect(close()).rejects.toThrow('Storage full')
+    expect(await service.getTask(task.id)).toEqual(task)
+    write.mockRestore()
+    expect(await close()).toMatchObject({ id: task.id, status, completedAt: null })
+    expect(await database.tasks.count()).toBe(1)
+  })
+
   it('persists edited data and completion across database reopening', async () => {
     const task = await service.createTask({ ...input, time: '18:30', description: 'Сохранить' })
     const completed = await service.completeTask(task.id)
@@ -207,6 +279,8 @@ describe('TaskService persistence and validation', () => {
     await expect(service.updateTask(first.id, input)).rejects.toThrow('не найдена')
     await expect(service.completeTask(first.id)).rejects.toThrow('не найдена')
     await expect(service.reopenTask(first.id)).rejects.toThrow('не найдена')
+    await expect(service.failTask(first.id)).rejects.toThrow('не найдена')
+    await expect(service.cancelTask(first.id)).rejects.toThrow('не найдена')
     expect(await database.tasks.count()).toBe(1)
   })
 
@@ -217,6 +291,8 @@ describe('TaskService persistence and validation', () => {
       await expect(service.updateTask(id as string, input)).rejects.toThrow('идентификатор')
       await expect(service.completeTask(id as string)).rejects.toThrow('идентификатор')
       await expect(service.reopenTask(id as string)).rejects.toThrow('идентификатор')
+      await expect(service.failTask(id as string)).rejects.toThrow('идентификатор')
+      await expect(service.cancelTask(id as string)).rejects.toThrow('идентификатор')
     }
   })
 
@@ -240,7 +316,7 @@ describe('TaskService persistence and validation', () => {
     }
   })
 
-  it.each(['edit', 'complete', 'reopen'] as const)('does not resurrect a row deleted concurrently with %s', async (operation) => {
+  it.each(['edit', 'complete', 'reopen', 'fail', 'cancel'] as const)('does not resurrect a row deleted concurrently with %s', async (operation) => {
     const task = await service.createTask(input)
     const other = new TaskTrackerDatabase(database.name)
     try {
@@ -249,7 +325,9 @@ describe('TaskService persistence and validation', () => {
       await Promise.allSettled([
         otherService.deleteTask(task.id),
         operation === 'edit' ? service.updateTask(task.id, input)
-          : operation === 'complete' ? service.completeTask(task.id) : service.reopenTask(task.id),
+          : operation === 'complete' ? service.completeTask(task.id)
+            : operation === 'fail' ? service.failTask(task.id)
+              : operation === 'cancel' ? service.cancelTask(task.id) : service.reopenTask(task.id),
       ])
       expect(await service.getTask(task.id)).toBeUndefined()
     } finally {
@@ -341,7 +419,7 @@ describe('task sorting and derived groups', () => {
     expect(sortTasks(tasks).map((task) => task.id)).toEqual(['active', 'done-a', 'done-b', 'done-old'])
   })
 
-  it('derives overdue only from an active status and an earlier local day, not the time', () => {
+  it('derives overdue from an active status at the supplied local-day start', () => {
     expect(isTaskOverdue(fixture('past', { date: yesterday }), today)).toBe(true)
     expect(isTaskOverdue(fixture('today', { time: '00:00' }), today)).toBe(false)
     expect(isTaskOverdue(fixture('future', { date: tomorrow }), today)).toBe(false)
@@ -359,7 +437,7 @@ describe('task sorting and derived groups', () => {
     expect(groups.upcoming.map((task) => task.id)).toEqual(['tomorrow'])
     expect(groups.completed.map((task) => task.id)).toEqual(['done'])
     expect(Object.values(groups).flat()).toHaveLength(tasks.length)
-    expect(groupTasks([], today)).toEqual({ overdue: [], today: [], upcoming: [], completed: [] })
+    expect(groupTasks([], today)).toEqual({ overdue: [], today: [], upcoming: [], completed: [], failed: [], cancelled: [] })
     expect(tasks.every((task) => !('overdue' in task))).toBe(true)
   })
 
@@ -367,5 +445,75 @@ describe('task sorting and derived groups', () => {
     expect(() => isTaskOverdue(fixture('bad', { date: '2026-02-30' as LocalDate }), today)).toThrow('календарная дата')
     expect(() => isTaskOverdue(fixture('valid'), 'bad' as LocalDate)).toThrow('календарная дата')
     expect(() => groupTasks([], 'bad' as LocalDate)).toThrow('календарная дата')
+  })
+
+  it('separates failed and cancelled groups and sorts final tasks deterministically', () => {
+    const tasks = [fixture('cancelled', { status: 'cancelled' }), fixture('failed-old', { status: 'failed' }),
+      fixture('active'), fixture('failed-new', { status: 'failed', updatedAt: '2026-10-03T10:00:00.000Z' })]
+    expect(sortTasks(tasks).map((task) => task.id)).toEqual(['active', 'failed-new', 'failed-old', 'cancelled'])
+    expect(sortTasks([...tasks].reverse())).toEqual(sortTasks(tasks))
+    const groups = groupTasks(tasks, today)
+    expect(groups.failed.map((task) => task.id)).toEqual(['failed-new', 'failed-old'])
+    expect(groups.cancelled.map((task) => task.id)).toEqual(['cancelled'])
+    expect(groups.today.map((task) => task.id)).toEqual(['active'])
+    expect(Object.values(groups).flat()).toHaveLength(tasks.length)
+  })
+})
+
+describe('precise task outcomes', () => {
+  afterEach(() => vi.unstubAllEnvs())
+
+  it('includes the exact local timed deadline and derives overdue immediately after it', () => {
+    const task = fixture('timed', { time: '12:30' })
+    const deadline = new Date(2026, 9, 4, 12, 30)
+    expect(getTaskDeadline(task)).toEqual(deadline)
+    expect(getTaskOutcome(task, new Date(deadline.getTime() - 1))).toBe('planned')
+    expect(getTaskOutcome(task, deadline)).toBe('planned')
+    expect(getTaskOutcome(task, new Date(deadline.getTime() + 1))).toBe('overdue')
+    expect(groupTasks([task], new Date(deadline.getTime() + 1)).overdue).toEqual([task])
+    expect(task.status).toBe('active')
+  })
+
+  it('classifies completion at the precise deadline, without using updatedAt', () => {
+    const deadline = new Date(2026, 9, 4, 12, 30)
+    for (const [offset, expected] of [[-1, 'completed_on_time'], [0, 'completed_on_time'], [1, 'completed_late']] as const) {
+      const task = fixture('completed', { status: 'completed', time: '12:30', completedAt: new Date(deadline.getTime() + offset).toISOString() })
+      expect(getTaskOutcome(task, new Date(2030, 0, 1))).toBe(expected)
+    }
+  })
+
+  it.each([null, '', 'invalid'])('keeps missing or invalid completion timestamp %s unknown', (completedAt) => {
+    expect(getTaskOutcome(fixture('unknown', { status: 'completed', completedAt }))).toBe('completed_unknown')
+  })
+
+  it.each(['Europe/Moscow', 'America/Los_Angeles'])('uses the whole local day for untimed tasks in %s', (timezone) => {
+    vi.stubEnv('TZ', timezone)
+    const task = fixture('untimed')
+    const end = new Date(2026, 9, 4, 23, 59, 59, 999)
+    expect(getTaskDeadline(task)).toEqual(end)
+    expect(getTaskOutcome(task, end)).toBe('planned')
+    expect(getTaskOutcome(task, new Date(2026, 9, 5))).toBe('overdue')
+    expect(getTaskOutcome({ ...task, status: 'completed', completedAt: end.toISOString() })).toBe('completed_on_time')
+    expect(getTaskOutcome({ ...task, status: 'completed', completedAt: new Date(2026, 9, 5).toISOString() })).toBe('completed_late')
+  })
+
+  it('uses calendar end-of-day over DST rather than a fixed 24 hours', () => {
+    vi.stubEnv('TZ', 'America/New_York')
+    const task = fixture('spring', { date: date('2026-03-08') })
+    const deadline = getTaskDeadline(task)
+    expect(deadline.getTime() - new Date(2026, 2, 8).getTime()).toBe(23 * 60 * 60 * 1000 - 1)
+    expect(getTaskOutcome(task, deadline)).toBe('planned')
+    expect(getTaskOutcome(task, new Date(2026, 2, 9))).toBe('overdue')
+  })
+
+  it.each(['failed', 'cancelled'] as const)('keeps %s separate from overdue regardless of deadline', (status) => {
+    const task = fixture(status, { status, date: yesterday })
+    expect(getTaskOutcome(task, new Date(2026, 9, 4, 12))).toBe(status)
+    expect(isTaskOverdue(task, new Date(2026, 9, 4, 12))).toBe(false)
+  })
+
+  it('rejects invalid deadline or current time input', () => {
+    expect(() => getTaskDeadline(fixture('bad-time', { time: '24:00' }))).toThrow('время')
+    expect(() => getTaskOutcome(fixture('valid'), new Date(NaN))).toThrow('дата')
   })
 })

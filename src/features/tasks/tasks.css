@@ -33,8 +33,8 @@
 .task-actions summary::-webkit-details-marker { display: none; }
 .task-actions summary:focus-visible { outline: 3px solid #739379; outline-offset: 2px; }
 .task-actions[open] summary { background: #edf1e7; }
-.task-action-list { position: absolute; top: 48px; right: 0; z-index: 2; display: flex; flex-direction: column; align-items: stretch; width: 180px; max-width: 68vw; border: 1px solid #e4e8de; padding: 5px; border-radius: 10px; background: #fff; box-shadow: 0 6px 24px #293c311c; }
-.task-action-list button { justify-content: flex-start; padding: 10px; }
+.task-action-list { position: absolute; top: 48px; right: 0; z-index: 2; display: flex; flex-direction: column; align-items: stretch; width: 235px; max-width: 68vw; border: 1px solid #e4e8de; padding: 5px; border-radius: 10px; background: #fff; box-shadow: 0 6px 24px #293c311c; }
+.task-action-list button { justify-content: flex-start; height: auto; min-height: 44px; padding: 10px; white-space: normal; text-align: left; }
 .task-delete-action { color: #a05448; }
 .task-card.is-compact { padding: 13px 11px; }
 .task-empty { margin: 0; border: 1px dashed #dce3d4; border-radius: 11px; padding: 22px 18px; color: #6d7a60; font-size: 13px; line-height: 1.7; }

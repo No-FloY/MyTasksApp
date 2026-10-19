@@ -1,6 +1,7 @@
+import { endOfDay, parseISO } from 'date-fns'
 import { db, type TaskTrackerDatabase } from '../db/database'
 import { getLocalDate, isLocalDate, type LocalDate } from '../lib/local-date'
-import type { Task, TaskInput, TaskPriority, TaskStatus } from '../models/task'
+import type { Task, TaskInput, TaskOutcome, TaskPriority, TaskStatus } from '../models/task'
 
 export const MAX_TASK_TITLE_LENGTH = 200
 export const MAX_TASK_DESCRIPTION_LENGTH = 5000
@@ -58,14 +59,18 @@ function normalizeTaskInput(input: TaskInput): Pick<Task, 'title' | 'description
 }
 
 const priorityOrder: Record<TaskPriority, number> = { high: 0, medium: 1, low: 2 }
+const statusOrder: Record<TaskStatus, number> = { active: 0, completed: 1, failed: 2, cancelled: 3 }
 const compareText = (first: string, second: string) => first < second ? -1 : first > second ? 1 : 0
 
 /** Active tasks: date, timed before untimed, time, priority, creation, then ID. */
 export function sortTasks(tasks: readonly Task[]): Task[] {
   return [...tasks].sort((first, second) => {
-    if (first.status !== second.status) return first.status === 'active' ? -1 : 1
+    if (first.status !== second.status) return statusOrder[first.status] - statusOrder[second.status]
     if (first.status === 'completed') {
       return compareText(second.completedAt ?? '', first.completedAt ?? '') || compareText(first.id, second.id)
+    }
+    if (first.status !== 'active') {
+      return compareText(second.updatedAt, first.updatedAt) || compareText(first.id, second.id)
     }
     return compareText(first.date, second.date)
       || compareText(first.time ?? '24:00', second.time ?? '24:00')
@@ -75,10 +80,41 @@ export function sortTasks(tasks: readonly Task[]): Task[] {
   })
 }
 
-export function isTaskOverdue(task: Task, today: LocalDate = getLocalDate()): boolean {
-  validateDate(today)
+/** An explicit time means HH:mm:00.000; a date without time includes the entire local day. */
+export function getTaskDeadline(task: Pick<Task, 'date' | 'time'>): Date {
   validateDate(task.date)
-  return task.status === 'active' && task.date < today
+  if (task.time === null) return endOfDay(parseISO(task.date))
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(task.time)) throw new Error('Некорректное время задачи.')
+  return parseISO(`${task.date}T${task.time}:00.000`)
+}
+
+export function getTaskOutcome(task: Task, now: Date = new Date()): TaskOutcome {
+  if (!Number.isFinite(now.getTime())) throw new Error('Некорректная дата.')
+  const deadline = getTaskDeadline(task).getTime()
+  if (task.status === 'failed' || task.status === 'cancelled') return task.status
+  if (task.status === 'completed') {
+    const completedAt = task.completedAt ? Date.parse(task.completedAt) : NaN
+    if (!Number.isFinite(completedAt)) return 'completed_unknown'
+    return completedAt <= deadline ? 'completed_on_time' : 'completed_late'
+  }
+  return now.getTime() > deadline ? 'overdue' : 'planned'
+}
+
+export const taskStatusLabels: Record<TaskStatus, string> = {
+  active: 'Активная', completed: 'Выполнена', failed: 'Не выполнена', cancelled: 'Отменена',
+}
+
+function normalizeNow(now: Date | LocalDate): Date {
+  if (typeof now === 'string') {
+    validateDate(now)
+    return parseISO(now)
+  }
+  if (!Number.isFinite(now.getTime())) throw new Error('Некорректная дата.')
+  return now
+}
+
+export function isTaskOverdue(task: Task, now: Date | LocalDate = new Date()): boolean {
+  return getTaskOutcome(task, normalizeNow(now)) === 'overdue'
 }
 
 export interface TaskGroups {
@@ -86,15 +122,18 @@ export interface TaskGroups {
   today: Task[]
   upcoming: Task[]
   completed: Task[]
+  failed: Task[]
+  cancelled: Task[]
 }
 
-export function groupTasks(tasks: readonly Task[], today: LocalDate = getLocalDate()): TaskGroups {
-  validateDate(today)
-  const groups: TaskGroups = { overdue: [], today: [], upcoming: [], completed: [] }
+export function groupTasks(tasks: readonly Task[], at: Date | LocalDate = new Date()): TaskGroups {
+  const now = normalizeNow(at)
+  const today = getLocalDate(now)
+  const groups: TaskGroups = { overdue: [], today: [], upcoming: [], completed: [], failed: [], cancelled: [] }
   for (const task of sortTasks(tasks)) {
     validateDate(task.date)
-    if (task.status === 'completed') groups.completed.push(task)
-    else if (isTaskOverdue(task, today)) groups.overdue.push(task)
+    if (task.status !== 'active') groups[task.status].push(task)
+    else if (isTaskOverdue(task, now)) groups.overdue.push(task)
     else if (task.date === today) groups.today.push(task)
     else groups.upcoming.push(task)
   }
@@ -158,9 +197,23 @@ export class TaskService {
     return this.setStatus(id, 'active')
   }
 
+  async failTask(id: string): Promise<Task> {
+    return this.setStatus(id, 'failed')
+  }
+
+  async cancelTask(id: string): Promise<Task> {
+    return this.setStatus(id, 'cancelled')
+  }
+
   private async setStatus(id: string, status: TaskStatus): Promise<Task> {
     return this.mutateTask(id, (task) => {
       if (task.status === status) return task
+      if (task.status === 'failed' || task.status === 'cancelled') {
+        throw new Error('Задача уже закрыта. Её конечное состояние нельзя изменить.')
+      }
+      if ((status === 'failed' || status === 'cancelled') && task.status !== 'active') {
+        throw new Error('Задача уже выполнена. Сначала верните её в активные.')
+      }
       const now = new Date().toISOString()
       return { ...task, status, updatedAt: now, completedAt: status === 'completed' ? now : null }
     })
@@ -190,3 +243,5 @@ export const getTasksForDateRange = (startDate: string, endDate: string) => task
 export const getAllTasks = () => taskService.getAllTasks()
 export const completeTask = (id: string) => taskService.completeTask(id)
 export const reopenTask = (id: string) => taskService.reopenTask(id)
+export const failTask = (id: string) => taskService.failTask(id)
+export const cancelTask = (id: string) => taskService.cancelTask(id)

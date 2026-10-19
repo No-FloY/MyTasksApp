@@ -1,10 +1,10 @@
-import { addDays, parseISO } from 'date-fns'
 import { db, type TaskTrackerDatabase } from '../db/database'
-import { getLocalDate, isLocalDate, type LocalDate } from '../lib/local-date'
+import type { LocalDate } from '../lib/local-date'
 import type { DurationHabit } from '../models/habit'
 import type { HabitEntry } from '../models/habit-entry'
 import type { DurationRatingRange } from '../models/duration-rating'
 import { getDurationRating, readDurationMinutes, validateRatingRanges } from './duration-service'
+import { getStatisticsPeriod } from './statistics/period-utils'
 
 export interface DurationDay {
   date: LocalDate
@@ -23,8 +23,7 @@ export interface DurationWeek {
 }
 
 export function getLastSevenDates(endDate: LocalDate): LocalDate[] {
-  if (!isLocalDate(endDate)) throw new Error('Некорректная календарная дата.')
-  return Array.from({ length: 7 }, (_, index) => getLocalDate(addDays(parseISO(endDate), index - 6)))
+  return getStatisticsPeriod('7d', endDate).dates
 }
 
 export function calculateDurationWeek(habit: DurationHabit, entries: HabitEntry[], endDate: LocalDate): DurationWeek {

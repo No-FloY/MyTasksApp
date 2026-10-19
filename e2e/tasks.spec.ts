@@ -97,10 +97,174 @@ async function createTask(page: Page, values: TaskFormValues) {
   await expect(card(page, values.title.trim())).toBeVisible()
 }
 
-async function taskAction(page: Page, title: string, action: 'Редактировать' | 'Удалить') {
+async function taskAction(page: Page, title: string, action: 'Редактировать' | 'Удалить' | 'Отметить как не выполненную' | 'Отменить') {
   await card(page, title).getByRole('button', { name: `Действия для задачи «${title}»`, exact: true }).click()
   await page.getByRole('button', { name: action, exact: true }).click()
 }
+
+test('confirms terminal task outcomes, restores dialog focus and persists them in Tasks and Calendar', async ({ page }) => {
+  await page.clock.setFixedTime(instant)
+  await openTasks(page)
+  const add = page.getByRole('button', { name: 'Добавить задачу', exact: true })
+  for (const scenario of [
+    { title: 'Не удалось закончить', action: 'Отметить как не выполненную', dialog: 'Отметить задачу как не выполненную?', confirm: 'Отметить как не выполненную', status: 'failed', group: 'Не выполненные', label: 'Не выполнена' },
+    { title: 'Планы изменились', action: 'Отменить', dialog: 'Отменить задачу?', confirm: 'Отменить задачу', status: 'cancelled', group: 'Отменённые', label: 'Отменена' },
+  ] as const) {
+    await createTask(page, { title: scenario.title, description: 'Сохранить факты задачи', time: '10:00' })
+    const original = (await readDatabase(page)).tasks.find((task) => task.title === scenario.title)
+    const trigger = card(page, scenario.title).getByRole('button', { name: `Действия для задачи «${scenario.title}»`, exact: true })
+    await taskAction(page, scenario.title, scenario.action)
+    const dialog = page.getByRole('dialog', { name: scenario.dialog, exact: true })
+    await expect(dialog).toHaveAccessibleDescription(/конечное состояние/)
+    await expect(dialog.getByRole('button', { name: 'Оставить задачу', exact: true })).toBeFocused()
+    for (let index = 0; index < 4; index += 1) {
+      await page.keyboard.press(index % 2 ? 'Shift+Tab' : 'Tab')
+      expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true)
+    }
+    await page.keyboard.press('Escape')
+    await expect(dialog).toHaveCount(0)
+    await expect(trigger).toBeFocused()
+    expect((await readDatabase(page)).tasks.find((task) => task.id === original?.id)).toEqual(original)
+
+    await taskAction(page, scenario.title, scenario.action)
+    await dialog.getByRole('button', { name: 'Оставить задачу', exact: true }).click()
+    await expect(trigger).toBeFocused()
+    await taskAction(page, scenario.title, scenario.action)
+    await dialog.getByRole('button', { name: scenario.confirm, exact: true }).click()
+    await expect(dialog).toHaveCount(0)
+    await expect(group(page, scenario.group)).toContainText(scenario.title)
+    await expect(add).toBeFocused()
+    await expect(card(page, scenario.title)).toContainText(scenario.label)
+    await expect(card(page, scenario.title).getByRole('button', { name: /Выполнить задачу|Вернуть в активные/ })).toHaveCount(0)
+    await trigger.click()
+    await expect(card(page, scenario.title).getByRole('button', { name: /Выполнить$|Отметить как не выполненную|^Отменить$/ })).toHaveCount(0)
+    await trigger.click()
+    expect((await readDatabase(page)).tasks.find((task) => task.id === original?.id))
+      .toEqual({ ...original, status: scenario.status, updatedAt: instant.toISOString() })
+  }
+  const stored = await readDatabase(page)
+  expect(stored.tasks.every((task) => task.completedAt === null && !Object.hasOwn(task, 'outcome'))).toBe(true)
+  await page.reload()
+  await expect(group(page, 'Не выполненные')).toContainText('Не удалось закончить')
+  await expect(group(page, 'Отменённые')).toContainText('Планы изменились')
+  expect((await readDatabase(page)).tasks).toEqual(stored.tasks)
+  await navigate(page, 'Сегодня')
+  await expect(page.getByRole('region', { name: 'Задачи на сегодня', exact: true })).toContainText('На сегодня задач нет')
+  await navigate(page, 'Календарь')
+  const panel = page.getByRole('region', { name: 'Задачи выбранного дня', exact: true })
+  await expect(panel).toContainText('Не выполнена')
+  await expect(panel).toContainText('Отменена')
+  await expect(panel).toContainText('Всего: 2 · Выполнено: 0')
+})
+
+test('keeps a terminal confirmation open after a storage failure and retries without losing task data', async ({ page }) => {
+  await page.clock.setFixedTime(instant)
+  await page.addInitScript(() => {
+    const original = IDBObjectStore.prototype.put
+    Object.defineProperty(IDBObjectStore.prototype, 'put', {
+      configurable: true,
+      value(this: IDBObjectStore, value: unknown, key?: IDBValidKey) {
+        if (this.name === 'tasks' && sessionStorage.getItem('task-close-blocked') === 'yes') {
+          throw new DOMException('Не удалось закрыть задачу: хранилище заполнено.', 'QuotaExceededError')
+        }
+        return key === undefined ? original.call(this, value) : original.call(this, value, key)
+      },
+    })
+  })
+  await openTasks(page)
+  const title = 'Закрыть после ошибки'
+  await createTask(page, { title, description: 'Исходное описание', time: '18:00', priority: 'high' })
+  const original = (await readDatabase(page)).tasks[0]
+  await taskAction(page, title, 'Отменить')
+  const dialog = page.getByRole('dialog', { name: 'Отменить задачу?', exact: true })
+  const confirm = dialog.getByRole('button', { name: 'Отменить задачу', exact: true })
+  await page.evaluate(() => sessionStorage.setItem('task-close-blocked', 'yes'))
+  await confirm.click()
+  await expect(dialog.getByRole('alert')).toContainText('хранилище заполнено')
+  await expect(confirm).toBeEnabled()
+  await expect(confirm).toBeFocused()
+  expect((await readDatabase(page)).tasks).toEqual([original])
+  await page.evaluate(() => sessionStorage.removeItem('task-close-blocked'))
+  await confirm.press('Enter')
+  await expect(dialog).toHaveCount(0)
+  await expect(group(page, 'Отменённые')).toContainText(title)
+  await expect(page.getByRole('button', { name: 'Добавить задачу', exact: true })).toBeFocused()
+  await page.reload()
+  expect((await readDatabase(page)).tasks).toEqual([{ ...original, status: 'cancelled', updatedAt: instant.toISOString() }])
+})
+
+test('refreshes timed deadlines while open and derives on-time versus late completion without storing computed outcomes', async ({ page }) => {
+  await page.clock.setFixedTime(instant)
+  await openTasks(page)
+  await createTask(page, { title: 'Ровно к сроку', time: '12:00' })
+  await createTask(page, { title: 'После срока', time: '12:00' })
+  await createTask(page, { title: 'В течение дня' })
+  await expect(group(page, 'Сегодня').locator('[data-task-id]')).toHaveCount(3)
+  await card(page, 'Ровно к сроку').getByRole('button', { name: 'Выполнить задачу «Ровно к сроку»', exact: true }).click()
+  await expect(card(page, 'Ровно к сроку')).toContainText('Выполнена вовремя')
+  await page.clock.setFixedTime(new Date(instant.getTime() + 1))
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  await expect(group(page, 'Просроченные')).toContainText('После срока')
+  await expect(group(page, 'Сегодня')).toContainText('В течение дня')
+  await card(page, 'После срока').getByRole('button', { name: 'Выполнить задачу «После срока»', exact: true }).click()
+  await expect(card(page, 'После срока')).toContainText('Выполнена с опозданием')
+  const stored = (await readDatabase(page)).tasks
+  expect(stored.find((task) => task.title === 'Ровно к сроку')).toMatchObject({ status: 'completed', completedAt: instant.toISOString() })
+  expect(stored.find((task) => task.title === 'После срока')).toMatchObject({ status: 'completed', completedAt: new Date(instant.getTime() + 1).toISOString() })
+  expect(stored.every((task) => !Object.hasOwn(task, 'outcome') && !Object.hasOwn(task, 'overdue'))).toBe(true)
+  await page.reload()
+  await expect(card(page, 'Ровно к сроку')).toContainText('Выполнена вовремя')
+  await expect(card(page, 'После срока')).toContainText('Выполнена с опозданием')
+  expect((await readDatabase(page)).tasks).toEqual(stored)
+})
+
+test('retains goal links when closing tasks and shows terminal labels in goal details and linking choices', async ({ page }) => {
+  await page.clock.setFixedTime(instant)
+  await openTasks(page)
+  await createTask(page, { title: 'Связанная неудача' })
+  await createTask(page, { title: 'Отменённый план' })
+  const tasks = (await readDatabase(page)).tasks
+  const failedId = tasks.find((task) => task.title === 'Связанная неудача')!.id
+  const cancelledId = tasks.find((task) => task.title === 'Отменённый план')!.id
+  await taskAction(page, 'Отменённый план', 'Отменить')
+  await page.getByRole('dialog', { name: 'Отменить задачу?', exact: true }).getByRole('button', { name: 'Отменить задачу', exact: true }).click()
+  await navigate(page, 'Цели')
+  await page.getByRole('button', { name: 'Добавить цель', exact: true }).click()
+  const goalForm = page.getByRole('dialog', { name: 'Новая цель', exact: true })
+  await goalForm.getByLabel('Название', { exact: true }).fill('Цель с историей задач')
+  await goalForm.getByRole('button', { name: 'Сохранить цель', exact: true }).click()
+  await expect(goalForm).toHaveCount(0)
+  const goalUrl = page.url()
+  const goalId = new URLSearchParams(goalUrl.split('?')[1]).get('id')
+  for (const id of [failedId, cancelledId]) {
+    await page.getByRole('button', { name: 'Привязать задачу', exact: true }).click()
+    const link = page.getByRole('dialog', { name: 'Привязать задачу', exact: true })
+    if (id === cancelledId) await expect(link.locator(`option[value="${cancelledId}"]`)).toHaveText(/отменена/)
+    await link.getByLabel('Задача', { exact: true }).selectOption(id)
+    await link.getByRole('button', { name: 'Привязать', exact: true }).click()
+    await expect(link).toHaveCount(0)
+  }
+  await page.getByRole('link', { name: 'Связанная неудача', exact: true }).click()
+  await expect(card(page, 'Связанная неудача')).toBeFocused()
+  await taskAction(page, 'Связанная неудача', 'Отметить как не выполненную')
+  await page.getByRole('dialog', { name: 'Отметить задачу как не выполненную?', exact: true })
+    .getByRole('button', { name: 'Отметить как не выполненную', exact: true }).click()
+  await card(page, 'Связанная неудача').getByRole('link', { name: 'Перейти к цели', exact: true }).click()
+  await expect(page).toHaveURL(goalUrl)
+  await expect(page.locator('.goal-linked-task').filter({ hasText: 'Связанная неудача' })).toContainText('Не выполнена')
+  await expect(page.locator('.goal-linked-task').filter({ hasText: 'Отменённый план' })).toContainText('Отменена')
+  await expect(page.getByRole('progressbar').first()).toHaveAttribute('aria-valuenow', '0')
+  await page.reload()
+  expect((await readDatabase(page)).tasks).toEqual(expect.arrayContaining([
+    expect.objectContaining({ id: failedId, goalId, status: 'failed', completedAt: null }),
+    expect.objectContaining({ id: cancelledId, goalId, status: 'cancelled', completedAt: null }),
+  ]))
+  await page.getByRole('button', { name: 'Отвязать задачу «Связанная неудача»', exact: true }).click()
+  await page.getByRole('button', { name: 'Привязать задачу', exact: true }).click()
+  const link = page.getByRole('dialog', { name: 'Привязать задачу', exact: true })
+  await expect(link.locator(`option[value="${failedId}"]`)).toHaveText(/не выполнена/)
+  await link.getByRole('button', { name: 'Отмена', exact: true }).click()
+})
 
 test('creates a local task with defaults and optional time, then edits all fields without duplicating the record', async ({ page }, testInfo) => {
   await page.clock.setFixedTime(instant)
@@ -198,14 +362,15 @@ test('groups dates and consistently sorts active tasks by date, time, priority a
     await page.clock.setFixedTime(new Date(instant.getTime() + index * 1000))
     await createTask(page, fixture)
   }
-  const expected = ['В восемь низкий', 'В десять высокий первый', 'В десять высокий второй',
-    'В десять средний', 'Без времени высокий', 'Без времени низкий']
+  const expected = ['Без времени высокий', 'Без времени низкий']
+  const overdue = ['Просроченная', 'В восемь низкий', 'В десять высокий первый', 'В десять высокий второй', 'В десять средний']
   await expect(group(page, 'Сегодня').locator('[data-task-id]').getByRole('heading')).toHaveText(expected)
   await expect(group(page, 'Предстоящие').locator('[data-task-id]').getByRole('heading'))
     .toHaveText(['Завтра поздно', 'Позже без времени'])
-  await expect(group(page, 'Просроченные').locator('[data-task-id]').getByRole('heading')).toHaveText(['Просроченная'])
+  await expect(group(page, 'Просроченные').locator('[data-task-id]').getByRole('heading')).toHaveText(overdue)
   await page.reload()
   await expect(group(page, 'Сегодня').locator('[data-task-id]').getByRole('heading')).toHaveText(expected)
+  await expect(group(page, 'Просроченные').locator('[data-task-id]').getByRole('heading')).toHaveText(overdue)
   const stored = (await readDatabase(page)).tasks
   expect(stored).toHaveLength(9)
   expect(stored.every((task) => task.status === 'active')).toBe(true)
@@ -275,16 +440,19 @@ for (const { timezoneId, time, localDay, yesterday, tomorrow } of [
     test('derives overdue and the default task date from the local day across UTC month boundaries', async ({ page }) => {
       await page.clock.setFixedTime(new Date(time))
       await openTasks(page)
-      await createTask(page, { title: 'Текущий локальный день', time: '00:01' })
+      await createTask(page, { title: 'Текущий локальный день' })
+      await createTask(page, { title: 'Срок в начале локального дня', time: '00:01' })
       await createTask(page, { title: 'Предыдущий локальный день', date: yesterday })
       await createTask(page, { title: 'Следующий локальный день', date: tomorrow })
       await expect(group(page, 'Сегодня')).toContainText('Текущий локальный день')
       await expect(group(page, 'Просроченные')).toContainText('Предыдущий локальный день')
+      await expect(group(page, 'Просроченные')).toContainText('Срок в начале локального дня')
       await expect(group(page, 'Предстоящие')).toContainText('Следующий локальный день')
       expect((await readDatabase(page)).tasks.find((task) => task.title === 'Текущий локальный день'))
         .toMatchObject({ date: localDay, status: 'active' })
       await page.reload()
       await expect(group(page, 'Сегодня')).toContainText('Текущий локальный день')
+      await expect(group(page, 'Просроченные')).toContainText('Срок в начале локального дня')
     })
   })
 }

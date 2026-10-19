@@ -2,10 +2,12 @@ import { AlertCircle, LoaderCircle, Plus } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { useLocalDate } from '@/hooks/use-local-date'
+import { useCurrentTime } from '@/hooks/use-current-time'
 import { useHashParam } from '@/hooks/use-hash-param'
 import type { Task } from '@/models/task'
 import { groupTasks } from '@/services/task-service'
 import { DeleteTaskDialog } from './DeleteTaskDialog'
+import { CloseTaskDialog } from './CloseTaskDialog'
 import { TaskCard } from './TaskCard'
 import { TaskFormDialog } from './TaskFormDialog'
 import { useTaskActions } from './use-task-actions'
@@ -17,17 +19,20 @@ const sections = [
   { key: 'today', title: 'Сегодня' },
   { key: 'upcoming', title: 'Предстоящие' },
   { key: 'completed', title: 'Выполненные' },
+  { key: 'failed', title: 'Не выполненные' },
+  { key: 'cancelled', title: 'Отменённые' },
 ] as const
 
-type DialogState = { kind: 'create' } | { kind: 'edit' | 'delete'; task: Task }
+type DialogState = { kind: 'create' } | { kind: 'edit' | 'delete' | 'failed' | 'cancelled'; task: Task }
 
 export function TasksPage() {
   const today = useLocalDate()
+  const now = useCurrentTime()
   const { tasks, loading, error, retry } = useTasks()
   const { toggleTask, pendingIds, errors } = useTaskActions()
   const addButtonRef = useRef<HTMLButtonElement>(null)
   const [dialog, setDialog] = useState<DialogState | null>(null)
-  const groups = groupTasks(tasks, today)
+  const groups = groupTasks(tasks, now)
   const selectedId = useHashParam('task')
   const focusedTask = useRef<string | null>(null)
 
@@ -71,15 +76,16 @@ export function TasksPage() {
             <section key={key} className={`task-group task-group-${key}`} aria-labelledby={`tasks-${key}`}>
               <div className="task-group-heading"><h2 id={`tasks-${key}`}>{title}</h2><span>{groups[key].length}</span></div>
               <ul className="task-list">
-                {groups[key].map((task) => <li key={task.id}><TaskCard task={task} today={today} highlighted={task.id === selectedId} onToggle={(value) => { void toggle(value) }} pending={pendingIds.has(task.id)} error={errors[task.id]} onEdit={(value) => setDialog({ kind: 'edit', task: value })} onDelete={(value) => setDialog({ kind: 'delete', task: value })} /></li>)}
+                {groups[key].map((task) => <li key={task.id}><TaskCard task={task} now={now} highlighted={task.id === selectedId} onToggle={(value) => { void toggle(value) }} pending={pendingIds.has(task.id)} error={errors[task.id]} onEdit={(value) => setDialog({ kind: 'edit', task: value })} onDelete={(value) => setDialog({ kind: 'delete', task: value })} onFail={(value) => setDialog({ kind: 'failed', task: value })} onCancel={(value) => setDialog({ kind: 'cancelled', task: value })} /></li>)}
               </ul>
             </section>
           ))}
         </div>
       )}
 
-      {dialog && dialog.kind !== 'delete' && <TaskFormDialog key={dialog.kind === 'edit' ? dialog.task.id : 'new'} task={dialog.kind === 'edit' ? dialog.task : undefined} today={today} onClose={() => setDialog(null)} fallbackFocus={addButtonRef} />}
+      {dialog && (dialog.kind === 'create' || dialog.kind === 'edit') && <TaskFormDialog key={dialog.kind === 'edit' ? dialog.task.id : 'new'} task={dialog.kind === 'edit' ? dialog.task : undefined} today={today} onClose={() => setDialog(null)} fallbackFocus={addButtonRef} />}
       {dialog?.kind === 'delete' && <DeleteTaskDialog task={dialog.task} onClose={() => setDialog(null)} fallbackFocus={addButtonRef} />}
+      {dialog && (dialog.kind === 'failed' || dialog.kind === 'cancelled') && <CloseTaskDialog task={dialog.task} status={dialog.kind} onClose={() => setDialog(null)} fallbackFocus={addButtonRef} />}
     </div>
   )
 }

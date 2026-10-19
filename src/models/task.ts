@@ -1,7 +1,11 @@
 import type { LocalDate } from '../lib/local-date'
 
 export type TaskPriority = 'low' | 'medium' | 'high'
-export type TaskStatus = 'active' | 'completed'
+export type TaskStatus = 'active' | 'completed' | 'failed' | 'cancelled'
+
+/** Derived from the stored status and local deadline; never persisted. */
+export type TaskOutcome = 'planned' | 'overdue' | 'completed_on_time' | 'completed_late'
+  | 'completed_unknown' | 'failed' | 'cancelled'
 
 export interface Task {
   id: string

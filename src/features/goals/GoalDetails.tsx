@@ -7,6 +7,7 @@ import type { LocalDate } from '@/lib/local-date'
 import type { Goal, GoalMilestone, GoalStatus } from '@/models/goal'
 import type { Task } from '@/models/task'
 import { calculateGoalProgress, goalService, isGoalOverdue, isMilestoneCompleted } from '@/services/goal-service'
+import { taskStatusLabels } from '@/services/task-service'
 import { DeleteGoalItemDialog } from './DeleteGoalItemDialog'
 import { GoalProgress } from './GoalProgress'
 import { LinkTaskDialog } from './LinkTaskDialog'
@@ -85,7 +86,7 @@ export function GoalDetails({ goal, milestones, tasks, today, onEdit, onDeleted,
       </section>
       <section className="goal-section" aria-labelledby={`${id}-tasks`}>
         <header className="goal-section-heading"><div><h2 id={`${id}-tasks`}>Связанные задачи</h2><p>Конкретные действия на пути к результату</p></div><Button variant="outline" disabled={pending} onClick={() => setDialog({ kind: 'link-task' })}><Link aria-hidden="true" />Привязать задачу</Button></header>
-        {tasks.length === 0 ? <p className="task-empty">Связанных задач пока нет.</p> : <ul className="goal-task-list">{tasks.map((task) => <li className="goal-linked-task" key={task.id}><div className="goal-linked-task-copy"><a href={`#tasks?task=${encodeURIComponent(task.id)}`}>{task.title}</a><p><time dateTime={task.date}>{format(parseISO(task.date), 'd MMMM yyyy', { locale: ru })}</time> · {task.status === 'completed' ? 'Выполнена' : 'Активная'}</p></div><Button variant="ghost" disabled={pending} aria-label={`Отвязать задачу «${task.title}»`} onClick={() => { void mutate(() => goalService.unlinkTask(goal.id, task.id)) }}>Отвязать</Button></li>)}</ul>}
+        {tasks.length === 0 ? <p className="task-empty">Связанных задач пока нет.</p> : <ul className="goal-task-list">{tasks.map((task) => <li className="goal-linked-task" key={task.id}><div className="goal-linked-task-copy"><a href={`#tasks?task=${encodeURIComponent(task.id)}`}>{task.title}</a><p><time dateTime={task.date}>{format(parseISO(task.date), 'd MMMM yyyy', { locale: ru })}</time> · {taskStatusLabels[task.status]}</p></div><Button variant="ghost" disabled={pending} aria-label={`Отвязать задачу «${task.title}»`} onClick={() => { void mutate(() => goalService.unlinkTask(goal.id, task.id)) }}>Отвязать</Button></li>)}</ul>}
         <p className="goal-hint">Задачи сохраняются отдельно. Их выполнение не меняет прогресс цели.</p>
       </section>
       {(dialog?.kind === 'add-milestone' || dialog?.kind === 'edit-milestone') && <MilestoneFormDialog goalId={goal.id} milestone={dialog.kind === 'edit-milestone' ? dialog.milestone : undefined} onClose={() => setDialog(null)} fallbackFocus={fallbackFocus} />}

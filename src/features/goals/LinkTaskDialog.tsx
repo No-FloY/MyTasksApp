@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { useDialog } from '@/components/ui/use-dialog'
 import { useTasks } from '@/features/tasks/use-tasks'
 import { goalService } from '@/services/goal-service'
+import { taskStatusLabels } from '@/services/task-service'
 
 interface LinkTaskDialogProps {
   goalId: string
@@ -50,7 +51,7 @@ export function LinkTaskDialog({ goalId, onClose, fallbackFocus }: LinkTaskDialo
         <div className="task-form-fields">
           {loading && <p role="status">Загружаем задачи…</p>}
           {readError && <div role="alert"><p className="task-error">Не удалось загрузить задачи.</p><Button variant="outline" onClick={retry}>Повторить загрузку задач</Button></div>}
-          {!loading && !readError && (available.length ? <div className="task-field"><label htmlFor={`${id}-task`}>Задача</label><select ref={selectRef} id={`${id}-task`} value={taskId} disabled={pending} onChange={(event) => { setTaskId(event.target.value); setError('') }}><option value="">Выберите задачу</option>{available.map((task) => <option key={task.id} value={task.id}>{task.title} · {task.date}{task.status === 'completed' ? ' · выполнена' : ''}</option>)}</select></div> : <p className="goal-hint">Свободных задач нет. Создайте задачу в разделе «Задачи» или отвяжите её от другой цели.</p>)}
+          {!loading && !readError && (available.length ? <div className="task-field"><label htmlFor={`${id}-task`}>Задача</label><select ref={selectRef} id={`${id}-task`} value={taskId} disabled={pending} onChange={(event) => { setTaskId(event.target.value); setError('') }}><option value="">Выберите задачу</option>{available.map((task) => <option key={task.id} value={task.id}>{task.title} · {task.date}{task.status !== 'active' ? ` · ${taskStatusLabels[task.status].toLowerCase()}` : ''}</option>)}</select></div> : <p className="goal-hint">Свободных задач нет. Создайте задачу в разделе «Задачи» или отвяжите её от другой цели.</p>)}
           {error && <p className="task-error" role="alert">{error}</p>}
         </div>
         <footer className="task-dialog-footer"><Button variant="outline" disabled={pending} onClick={close}>Отмена</Button><Button type="submit" disabled={pending || loading || readError || available.length === 0}>Привязать</Button></footer>

@@ -29,3 +29,61 @@
   .duration-weeks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .week-metrics { grid-template-columns: 1fr; }
 }
+
+.statistics-page { max-width: 1260px; }
+.statistics-section { min-width: 0; margin: 28px 0; }
+.statistics-section h2 { margin: 0 0 16px; font-size: 20px; color: #3d5843; line-height: 1.4; overflow-wrap: anywhere; }
+.statistics-section h3 { color: #3d5843; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.statistics-card, .statistics-summary-card, .statistics-habit-card { min-width: 0; padding: 20px 17px; background: #fff; border: 1px solid #e0e7d9; box-shadow: none; }
+.statistics-period { margin-bottom: 28px; padding: 17px; background: #f1f4eb; border: 1px solid #e0e7d9; border-radius: 12px; }
+.statistics-period-buttons { display: flex; gap: 7px; flex-wrap: wrap; }
+.statistics-period-buttons button { min-width: 44px; min-height: 44px; padding: 10px 13px; font-size: 12px; line-height: 1.5; border: 1px solid #d5decd; border-radius: 8px; color: #526448; background: #fff; cursor: pointer; }
+.statistics-period-buttons button[aria-pressed="true"] { background: #476951; border-color: #476951; color: #fff; }
+.statistics-period-buttons button:focus-visible, .statistics-table-details summary:focus-visible { outline: 2px solid #476951; outline-offset: 3px; }
+.statistics-period-label { margin: 20px 0 6px; font-size: 15px; font-weight: 600; color: #3d5843; }
+.statistics-period > .week-explanation { margin-bottom: 0; }
+.statistics-custom-period { display: grid; gap: 12px; margin-top: 18px; }
+.statistics-custom-period label { display: grid; min-width: 0; gap: 5px; color: #526448; font-size: 12px; }
+.statistics-custom-period input { appearance: none; min-width: 0; width: 100%; max-width: 100%; min-height: 44px; padding: 8px 10px; border: 1px solid #cbd7c3; border-radius: 7px; background: white; font-size: 16px; }
+.statistics-custom-period button { min-height: 44px; }
+.statistics-custom-period .week-explanation { margin: 0; }
+.statistics-input-error { font-size: 13px; color: #a1483c; overflow-wrap: anywhere; }
+.statistics-summary-grid, .boolean-statistics-grid, .statistics-weekly-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.statistics-summary-card { display: grid; align-content: start; gap: 8px; background: #f9faf6; }
+.statistics-summary-card h3, .statistics-summary-card p { margin: 0; }
+.statistics-summary-card strong { color: #355847; font-size: 23px; line-height: 1.4; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.statistics-summary-card p { color: #68765f; font-size: 12px; line-height: 1.6; }
+.statistics-habit-card { display: grid; align-content: start; gap: 12px; }
+.statistics-habit-title { display: flex; align-items: start; justify-content: space-between; gap: 8px; }
+.statistics-habit-title h3 { margin: 0; }
+.statistics-badge { display: inline-block; flex: none; color: #69775f; background: #edf1e7; border-radius: 5px; padding: 2px 6px; font-size: 11px; vertical-align: middle; }
+.statistics-habit-rate { color: #355847; font-size: 24px; font-variant-numeric: tabular-nums; }
+.statistics-meter, .statistics-outcome-track { height: 7px; background: #edf1e7; border-radius: 4px; overflow: hidden; }
+.statistics-meter > span, .statistics-outcome-track > span { display: block; height: 100%; background: #6b9173; border-radius: inherit; }
+.statistics-small-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; margin: 0; }
+.statistics-small-metrics dt { color: #68765f; font-size: 11px; line-height: 1.5; }
+.statistics-small-metrics dd { color: #3d5843; margin: 3px 0 0; font-size: 16px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.statistics-empty { padding: 16px; color: #68765f; background: #f2f5ed; border-radius: 8px; font-size: 13px; line-height: 1.7; }
+.statistics-chart { width: 100%; min-width: 0; height: 180px; }
+.statistics-table-details { min-width: 0; margin-top: 14px; border-top: 1px solid #e0e7d9; }
+.statistics-table-details summary { padding: 13px 0; min-height: 44px; color: #49694f; font-size: 13px; line-height: 1.5; cursor: pointer; }
+.statistics-table-scroll { max-height: 420px; overflow: auto; overscroll-behavior: contain; }
+.statistics-outcomes { display: grid; gap: 15px; list-style: none; padding: 0; margin: 22px 0; }
+.statistics-outcomes li > div:first-child { display: flex; gap: 12px; justify-content: space-between; font-size: 12px; line-height: 1.6; margin-bottom: 6px; color: #526448; }
+.statistics-outcomes li strong { color: #355847; font-variant-numeric: tabular-nums; }
+.statistics-week-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 12px; color: #526448; }
+.statistics-week-table caption { text-align: left; padding: 8px 0; }
+.statistics-week-table th, .statistics-week-table td { text-align: left; padding: 9px 3px; border-top: 1px solid #e9eee3; font-weight: normal; overflow-wrap: anywhere; }
+.duration-weeks > .statistics-section { margin: 0; }
+@media (min-width: 500px) {
+  .statistics-summary-grid, .boolean-statistics-grid, .statistics-weekly-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .statistics-card { padding: 25px; }
+  .statistics-custom-period { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .statistics-custom-period > button, .statistics-custom-period > p { grid-column: 1 / -1; }
+  .statistics-metrics, .statistics-goal-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1000px) {
+  .statistics-summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .statistics-goal-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .statistics-outcomes { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 30px; }
+}
