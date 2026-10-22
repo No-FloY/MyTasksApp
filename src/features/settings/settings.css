@@ -1,0 +1,52 @@
+.settings-page, .settings-section { min-width: 0; }
+.settings-habit-groups { display: grid; gap: 30px; }
+.settings-section > .settings-hint { margin: 0 0 16px; }
+.settings-habit-list { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.settings-habit-list > li { min-width: 0; }
+.settings-habit-card { min-width: 0; padding: 17px 14px; border: 1px solid #e4e8de; border-radius: 12px; background: #fff; }
+.settings-habit-heading { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 8px 12px; }
+.settings-habit-heading h3 { flex: 1 1 160px; margin: 0; color: #42533c; font-size: 16px; line-height: 1.55; font-weight: 600; overflow-wrap: anywhere; }
+.settings-habit-status { flex-shrink: 0; border-radius: 5px; padding: 3px 7px; color: #527045; background: #edf3e7; font-size: 11px; }
+.settings-habit-status.is-archived { color: #726e5e; background: #f3f1e9; }
+.settings-habit-type { margin: 7px 0 0; color: #728065; font-size: 12px; line-height: 1.6; }
+.settings-habit-description { margin: 8px 0 0; color: #68755e; font-size: 13px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+.settings-habit-target { margin: 11px 0 0; color: #566b4b; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.settings-rating-summary { display: grid; gap: 5px; padding: 0; margin: 13px 0 0; list-style: none; }
+.settings-rating-summary li { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 3px 12px; color: #566b4b; font-size: 12px; line-height: 1.6; }
+.settings-rating-summary li > span { overflow-wrap: anywhere; }
+.settings-rating-summary li > span:last-child { color: #738168; font-variant-numeric: tabular-nums; }
+.settings-habit-actions, .settings-backup-actions { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; margin-top: 15px; }
+.settings-page :is(.settings-habit-actions, .settings-backup-actions) button { max-width: 100%; min-height: 44px; height: auto; padding: 10px 12px; white-space: normal; overflow-wrap: anywhere; }
+.settings-page .tasks-page-heading > button { max-width: 100%; height: auto; min-height: 44px; white-space: normal; text-align: left; }
+.settings-hint { color: #6b775f; font-size: 13px; line-height: 1.75; overflow-wrap: anywhere; }
+.settings-notice { margin: 0; padding: 12px 13px; border: 1px solid #e9dfc8; border-radius: 8px; background: #fcf9ef; color: #7b653b; font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+.settings-feedback { margin: 0 0 17px; color: #527045; font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+.settings-range-editor { min-width: 0; }
+.settings-range-editor h3 { margin: 0; color: #465a3d; font-size: 16px; font-weight: 600; }
+.settings-range-editor > .settings-hint { margin: 9px 0 13px; }
+.settings-range-list { display: grid; gap: 17px; margin-top: 19px; }
+.settings-range-fields { display: grid; min-width: 0; gap: 15px; margin: 0; padding: 13px 12px 15px; border: 1px solid #e0e5d8; border-radius: 9px; }
+.settings-range-fields legend { padding: 0 6px; color: #536b47; font-size: 13px; font-weight: 600; }
+.settings-range-bounds { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: end; gap: 10px; }
+.settings-range-bounds .task-field label { font-size: 12px; line-height: 1.6; }
+.settings-range-open { align-self: end; margin: 0; min-height: 46px; display: flex; align-items: center; color: #748169; font-size: 12px; line-height: 1.5; }
+.settings-backup { margin-top: 32px; padding: 22px 15px; border: 1px solid #dce3d4; border-radius: 14px; background: #f9fbf6; }
+.settings-section-heading { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 13px; }
+.settings-section-heading > div:last-child { min-width: 0; }
+.settings-section-heading h2 { margin: 0; color: #42533c; font-size: 19px; font-weight: 600; }
+.settings-section-heading p { margin: 8px 0 0; color: #6b775f; font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+.settings-section-icon { display: flex; align-items: center; justify-content: center; flex: 0 0 38px; height: 38px; border: 1px solid #e2e8d9; border-radius: 10px; background: #fff; color: #71845f; }
+.settings-section-icon svg { width: 20px; height: 20px; }
+.settings-backup .settings-feedback { margin-top: 16px; margin-bottom: 0; }
+.settings-backup-preview { margin-top: 22px; padding-top: 21px; border-top: 1px solid #dce3d4; }
+.settings-backup-preview h3 { margin: 0; color: #42533c; font-size: 16px; line-height: 1.6; font-weight: 600; }
+.settings-backup-filename { margin: 10px 0 0; color: #566b4b; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.settings-backup-counts { display: grid; gap: 8px; margin: 18px 0; padding: 15px; border-radius: 9px; background: #fff; }
+.settings-backup-counts > div { display: flex; justify-content: space-between; gap: 14px; color: #566b4b; font-size: 13px; line-height: 1.6; }
+.settings-backup-counts dt { overflow-wrap: anywhere; }
+.settings-backup-counts dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+@media (min-width: 600px) {
+  .settings-habit-list { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  .settings-habit-card { padding: 19px 18px; }
+  .settings-backup { padding: 24px; }
+}

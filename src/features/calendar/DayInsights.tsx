@@ -6,6 +6,7 @@ import {
   getDayHabitNotes, MAX_HABIT_NOTE_LENGTH, setHabitEntryNote, type HabitEntryWithNote,
 } from '../../services/habit-note-service'
 import { getBooleanHabitStatistics, type BooleanHabitStatistics } from '../../services/streak-service'
+import { ArchivedDayHistory } from './ArchivedDayHistory'
 import './day-insights.css'
 
 interface DayInsightData {
@@ -31,7 +32,7 @@ export function DayInsights({ date }: { date: LocalDate }) {
 
   useEffect(() => {
     const subscription = liveQuery(async () => {
-      const [notes, statistics] = await Promise.all([getDayHabitNotes(date), getBooleanHabitStatistics(date)])
+      const [notes, statistics] = await Promise.all([getDayHabitNotes(date, true), getBooleanHabitStatistics(date)])
       return { date, notes, statistics }
     }).subscribe({
       next: (result) => { setData(result); setError(null) },
@@ -42,7 +43,7 @@ export function DayInsights({ date }: { date: LocalDate }) {
     return () => subscription.unsubscribe()
   }, [date, retry])
 
-  const rows = data?.date === date ? data.notes : []
+  const rows = data?.date === date ? data.notes.filter(({ habit }) => habit.archivedAt === null) : []
   const selected = rows.find((row) => row.habit.id === selection[date]) ?? rows[0]
   const key = `${date}/${selected?.habit.id ?? ''}`
   const form = forms[key] ?? {}
@@ -80,6 +81,7 @@ export function DayInsights({ date }: { date: LocalDate }) {
 
   return (
     <div className="day-insights">
+      <ArchivedDayHistory rows={data.notes} />
       <section className="day-insight-card" aria-labelledby={`${id}-notes`}>
         <h2 id={`${id}-notes`}>Заметки к привычкам</h2>
         <p className="day-insight-description">Контекст и наблюдения за выбранный день.</p>

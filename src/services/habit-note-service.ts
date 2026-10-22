@@ -40,13 +40,13 @@ export class HabitNoteService {
     this.database = database
   }
 
-  async getDayNotes(date: LocalDate): Promise<HabitEntryWithNote[]> {
+  async getDayNotes(date: LocalDate, includeArchived = false): Promise<HabitEntryWithNote[]> {
     if (!isLocalDate(date)) throw new Error('Некорректная календарная дата.')
     return this.database.transaction('r', this.database.habits, this.database.habitEntries, async () => {
       const habits = await this.database.habits.orderBy('order').toArray()
       const entries = new Map((await this.database.habitEntries.where('date').equals(date).toArray())
         .map((entry) => [entry.habitId, entry]))
-      return habits.filter((habit) => habit.archivedAt === null).flatMap((habit) => {
+      return habits.filter((habit) => includeArchived || habit.archivedAt === null).flatMap((habit) => {
         const entry = entries.get(habit.id)
         if (!entry) return []
         validateEntry(habit, entry)
@@ -79,6 +79,6 @@ export class HabitNoteService {
 }
 
 const habitNoteService = new HabitNoteService(db)
-export const getDayHabitNotes = (date: LocalDate) => habitNoteService.getDayNotes(date)
+export const getDayHabitNotes = (date: LocalDate, includeArchived = false) => habitNoteService.getDayNotes(date, includeArchived)
 export const setHabitEntryNote = (habitId: string, date: LocalDate, note: string) =>
   habitNoteService.setHabitEntryNote(habitId, date, note)

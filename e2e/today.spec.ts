@@ -191,8 +191,8 @@ test('keeps all six navigation items usable on a narrow screen without horizonta
     } else if (name === 'Цели') {
       await expect(page.getByRole('button', { name: 'Добавить цель', exact: true })).toBeVisible()
     } else {
-      await expect(page.getByText('Этот раздел появится на следующих этапах разработки.', { exact: false }))
-        .toBeVisible()
+      await expect(page.getByRole('region', { name: 'Активные привычки', exact: true })).toBeVisible()
+      await expect(page.getByRole('button', { name: 'Скачать резервную копию', exact: true })).toBeEnabled()
     }
     await expect(navigation.getByRole('link', { name, exact: true })).toHaveAttribute('aria-current', 'page')
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)

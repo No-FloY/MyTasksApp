@@ -9,7 +9,7 @@
 .week-explanation { color: #68765f; font-size: 12px; line-height: 1.7; margin: 16px 0; }
 .rating-distribution { display: grid; gap: 7px; padding: 0; margin: 20px 0; list-style: none; }
 .rating-distribution li { display: flex; gap: 8px; align-items: center; padding: 8px 11px; border-radius: 7px; background: #f5f7f1; font-size: 12px; min-width: 0; }
-.rating-distribution li > span:nth-child(2) { overflow-wrap: anywhere; }
+.rating-distribution li > span { min-width: 0; overflow-wrap: anywhere; }
 .rating-distribution strong { margin-left: auto; }
 .week-chart-label { font-size: 12px; color: #63715b; margin: 22px 0 8px; }
 .duration-chart { width: 100%; min-width: 0; height: 180px; }

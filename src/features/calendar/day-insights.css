@@ -23,6 +23,12 @@
 .day-streak-row dl > div { min-width: 0; }
 .day-streak-row dt { color: #69765f; font-size: 10px; line-height: 1.5; min-height: 45px; }
 .day-streak-row dd { margin: 5px 0 0; color: #355847; font-size: 15px; line-height: 1.5; font-variant-numeric: tabular-nums; }
+.archived-day-list { list-style: none; margin: 16px 0 0; padding: 0; }
+.archived-day-list li { min-width: 0; padding: 16px 0; border-top: 1px solid #edf0e8; overflow-wrap: anywhere; }
+.archived-day-list h3 { margin: 0; color: #42533c; font-size: 14px; font-weight: 550; }
+.archived-day-type { margin: 5px 0 0; color: #69765f; font-size: 12px; }
+.archived-day-value { margin: 9px 0 0; color: #355847; font-size: 15px; font-weight: 550; }
+.archived-day-note { margin: 9px 0 0; color: #69765f; font-size: 13px; line-height: 1.7; white-space: pre-wrap; }
 @media (min-width: 600px) {
   .day-streak-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 20px; align-items: center; }
   .day-streak-row h3 { margin-bottom: 0; }
