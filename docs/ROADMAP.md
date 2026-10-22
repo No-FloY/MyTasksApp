@@ -421,8 +421,8 @@ Production опубликован и проверен в Chrome и WebKit/iPhone
 
 # Этап 8 — Настройки и backup
 
-Статус: In progress — реализация и локальные проверки завершены; осталось
-сохранить изменения в GitHub и проверить production.
+Статус: Completed — реализация, проверки, commit и push завершены.
+Production опубликован и проверен в Chrome и WebKit/iPhone.
 
 Объём: настройки существующих Habit, архив/восстановление, JSON snapshot всей
 пользовательской БД и атомарный import с заменой данных после проверки/подтверждения.
@@ -440,7 +440,7 @@ Production опубликован и проверен в Chrome и WebKit/iPhone
 - [x] Runtime validation, preview и подтверждение замены
 - [x] Полный round-trip, ошибки записи и rollback всех таблиц
 - [x] Regression: TypeScript, lint, unit/integration, E2E, WebKit/mobile, build
-- [ ] Commit, push в main и проверка production
+- [x] Commit, push в main и проверка production
 
 Проверено локально 2026-10-22:
 
@@ -468,6 +468,23 @@ Production опубликован и проверен в Chrome и WebKit/iPhone
   desktop и WebKit/320 px. Физический iPhone не проверялся.
 - Схема остаётся v4, новых таблиц нет. Проверки используют отдельные браузерные
   контексты, личное хранилище пользователя не изменялось. Этап 9 не начат.
+
+Проверено на production 2026-10-22:
+
+- Commit `52012da` (`feat: add habit settings and atomic JSON backups`) отправлен
+  в `origin/main`. [Настройки](https://my-tasks-app-xi.vercel.app/#settings)
+  опубликованы: HTML, основной JavaScript и новый модуль настроек доступны
+  по HTTPS с HTTP 200. Статус через GitHub API не получен из-за лимита запросов;
+  публикация подтверждена непосредственно HTTP- и E2E-проверками.
+- `npm run test:e2e -- e2e/settings.spec.ts e2e/today.spec.ts` с production base URL:
+  36 passed в Chrome и WebKit/iPhone (1,8 минуты), без пропусков и ошибок JavaScript.
+- Подтверждены настройки, архивная история, сохранение фактических значений,
+  JSON round-trip и связи целей/задач, отмена, rollback после ошибки записи,
+  повтор импорта, пустая копия, reload, liveQuery, фокус, локальная дата,
+  навигация и mobile 320/375/390 px. Использованы изолированные тестовые контексты;
+  личные данные пользователя не менялись.
+
+После завершения этапа остановиться.
 
 ---
 
