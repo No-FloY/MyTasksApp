@@ -490,8 +490,8 @@ Production опубликован и проверен в Chrome и WebKit/iPhone
 
 # Этап 9 — PWA и публикация
 
-Статус: In progress — реализация и локальные проверки завершены;
-публикация и проверка новой production-версии ожидаются.
+Статус: Completed — реализация, проверки, commit и push завершены.
+PWA опубликована в существующем Vercel project и проверена на production.
 
 - [x] PWA: production Service Worker, precache всех разделов и offline shell
 - [x] Manifest: «Задачник», standalone, start_url /#today, scope /
@@ -501,8 +501,8 @@ Production опубликован и проверен в Chrome и WebKit/iPhone
 - [x] Проверка мобильного интерфейса, настроек, диалогов, backup и навигации
 - [x] Сохранён существующий GitHub repository и pipeline main → Vercel
 - [x] README и архитектура PWA, ограничения iOS и автоматизации
-- [ ] Commit и push в main
-- [ ] Успешный автоматический deploy и проверка PWA на существующем production
+- [x] Commit и push в main — `6b02253` (`feat: add PWA support`)
+- [x] Успешный автоматический deploy и проверка PWA на существующем production
 
 Проверено локально 2026-10-23:
 
@@ -537,5 +537,23 @@ Production опубликован и проверен в Chrome и WebKit/iPhone
   сохранение файла в «Файлы» и реальный offline-запуск остаются ручной проверкой.
   Все автоматические проверки использовали изолированные контексты, личные данные
   пользователя не изменялись. Последующие этапы не начинались.
+
+Проверено на production 2026-10-23:
+
+- Commit `6b02253` отправлен в `origin/main`; GitHub status Vercel — success,
+  «Deployment has completed». Проект, домен и pipeline не менялись.
+- [Production](https://my-tasks-app-xi.vercel.app/) доступен по HTTPS. Manifest,
+  SW, activation-script, все иконки и 28 precache-файлов отвечают HTTP 200.
+  Текущий основной JS входит в precache; `/sw.js` получает Cache-Control:
+  public, max-age=0, must-revalidate.
+- Production E2E (PWA + Settings + Today): 41 passed, 1 skipped (1,8 минуты),
+  Chrome/WebKit. Единственный пропуск этого набора — offline-эмуляция WebKit,
+  описанная выше. Ошибок JavaScript не обнаружено.
+- Подтверждены manifest/start_url/icons, настоящий SW, offline cold reopen
+  в Chrome со всеми lazy-разделами, локальными записями и backup/import.
+  Настройки, архив/восстановление, JSON round-trip, rollback/retry, liveQuery,
+  reload, локальные даты и mobile 320/375/390/landscape прошли regression.
+- Физический iPhone не тестировался; установка, системный standalone, safe-area,
+  отдельное хранилище Home Screen и offline после закрытия проверяются вручную.
 
 После завершения этапа остановиться.
