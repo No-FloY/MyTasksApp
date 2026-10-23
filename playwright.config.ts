@@ -22,8 +22,8 @@ export default defineConfig({
     { name: 'iphone-webkit', use: { ...devices['iPhone SE'], browserName: 'webkit' } },
   ],
   webServer: externalBaseURL ? undefined : {
-    command: 'node node_modules/vite/bin/vite.js --host 127.0.0.1 --port 5173 --strictPort',
+    command: 'node node_modules/vite/bin/vite.js build && node node_modules/vite/bin/vite.js preview --host 127.0.0.1 --port 5173 --strictPort',
     url: 'http://127.0.0.1:5173',
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
   },
 })

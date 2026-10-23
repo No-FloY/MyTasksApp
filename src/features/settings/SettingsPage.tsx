@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { AlertCircle, Archive, ArchiveRestore, LoaderCircle, Pencil, SlidersHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { PwaSettings } from '@/components/pwa/PwaSettings'
 import type { Habit } from '@/models/habit'
 import { setHabitArchived } from '@/services/habit-settings-service'
 import { BackupSettings } from './BackupSettings'
@@ -104,6 +105,7 @@ export default function SettingsPage() {
         })}
       </div>}
       <BackupSettings disabled={busy || loading || error} onBusyChange={setBackupBusy} />
+      <PwaSettings />
       {editing && <HabitSettingsDialog habit={editing} onClose={() => setEditing(null)} onSaved={() => setMessage('Настройки привычки сохранены.')} fallbackFocus={focusRef} />}
     </div>
   )

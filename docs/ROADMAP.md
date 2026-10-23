@@ -490,12 +490,52 @@ Production опубликован и проверен в Chrome и WebKit/iPhone
 
 # Этап 9 — PWA и публикация
 
-Статус: Planned
+Статус: In progress — реализация и локальные проверки завершены;
+публикация и проверка новой production-версии ожидаются.
 
-- [ ] PWA
-- [ ] Manifest
-- [ ] Иконки
-- [ ] Проверка мобильного интерфейса
-- [ ] GitHub repository
-- [ ] Автоматический deploy
-- [ ] Vercel или GitHub Pages
+- [x] PWA: production Service Worker, precache всех разделов и offline shell
+- [x] Manifest: «Задачник», standalone, start_url /#today, scope /
+- [x] Локальные PNG 192/512, maskable 512, apple-touch-icon 180
+- [x] iOS metadata, viewport/safe-area, подсказка установки в настройках
+- [x] Обновление с подтверждением, защитой других окон и сохранением IndexedDB
+- [x] Проверка мобильного интерфейса, настроек, диалогов, backup и навигации
+- [x] Сохранён существующий GitHub repository и pipeline main → Vercel
+- [x] README и архитектура PWA, ограничения iOS и автоматизации
+- [ ] Commit и push в main
+- [ ] Успешный автоматический deploy и проверка PWA на существующем production
+
+Проверено локально 2026-10-23:
+
+- TypeScript, lint и `npm run build` — успешно; Workbox precache включает 28
+  записей (~1,02 МиБ), все lazy JS/CSS и локальные обязательные assets.
+- `npm test` — 697 passed, все прежние тесты сохранены.
+- Полный E2E production build: 174 passed, 2 skipped (6,5 минуты), Chrome/WebKit.
+  Прежний пропуск — незавершённый native time input WebKit. Новый — offline
+  transport Playwright WebKit 1.63: context.setOffline(true) вызывает внутреннюю
+  ошибку даже при active/controller и cached index.html; ограничение описано в README.
+- `npm run test:pwa-update`: 2 passed (Chrome/WebKit, 1,6 минуты). Две реальные
+  сборки меняют HTML и lazy JS. Проверены waiting, явное подтверждение/отмена,
+  Escape/возврат фокуса, блокировка при другом окне с несохранённым черновиком,
+  активация после его закрытия, сохранение hash и всех пяти таблиц/связей.
+- Chrome: сеть отключена, последняя страница закрыта, приложение снова открыто;
+  все ранее не посещённые разделы доступны, привычки/вода/задачи/настройки сохраняются,
+  JSON export/import и reload работают без сети. После online работа продолжается.
+- Chrome и WebKit: после обновления тестовый origin-сервер полностью остановлен;
+  новый lazy-раздел, повторный запуск после закрытия последней страницы и backup/import
+  продолжают работать из кэша. Это отдельная реальная проверка недоступности сервера,
+  без подмены Service Worker и без заявления об успешной offline-эмуляции WebKit.
+- Manifest, все иконки/размеры, start_url и SW activation проверены; mobile
+  320/375/390 px и landscape без overflow, touch-контролы от 44 px. Просмотрены
+  снимки нового блока настроек, offline-индикатора и update-dialog 320 px.
+- Добавлена только прямая dev-зависимость vite-plugin-pwa 2.0.0, Workbox 7.4.1
+  приходит транзитивно. Существующие версии зависимостей не менялись.
+- Dexie schema v4, backup formatVersion 1 и пять таблиц не изменены. Нет clear,
+  reseed, автоматического переноса данных или cloud sync при установке/обновлении.
+- Safari/Home Screen могут иметь отдельные контейнеры: требуется первый online-запуск
+  установленной копии; перенос записей возможен существующим ручным backup/import.
+- Физический iPhone, системный standalone/status bar/safe-area, Share Sheet,
+  сохранение файла в «Файлы» и реальный offline-запуск остаются ручной проверкой.
+  Все автоматические проверки использовали изолированные контексты, личные данные
+  пользователя не изменялись. Последующие этапы не начинались.
+
+После завершения этапа остановиться.

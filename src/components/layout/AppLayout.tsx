@@ -2,6 +2,7 @@ import { ArrowUpRight, Leaf, ShieldCheck } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { navigation, type PageId } from '@/app/navigation'
 import { cn } from '@/lib/utils'
+import { PwaStatus } from '@/components/pwa/PwaStatus'
 
 interface AppLayoutProps {
   currentPage: PageId
@@ -59,6 +60,7 @@ export function AppLayout({ currentPage, children }: AppLayoutProps) {
           <span>Моё пространство <span className="breadcrumb-slash">/</span> <strong>{navigation.find((page) => page.id === currentPage)?.label}</strong></span>
           <span className="local-badge"><span aria-hidden="true" />Локальное хранение</span>
         </header>
+        <PwaStatus />
         <main id="main-content" className="main-content" tabIndex={-1}>{children}</main>
         <footer className="page-footer"><Leaf size={14} aria-hidden="true" />Меньше спешки. Больше внимания к себе.</footer>
       </div>

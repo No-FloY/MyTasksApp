@@ -1,0 +1,40 @@
+.pwa-status { min-width: 0; width: 100%; max-width: 1190px; margin: 0 auto; padding: 16px max(20px, env(safe-area-inset-right)) 0 max(20px, env(safe-area-inset-left)); }
+.pwa-status:empty { display: none; }
+.pwa-offline { display: flex; gap: 9px; align-items: flex-start; margin: 0 0 10px; color: #6b705f; font-size: 12px; line-height: 1.65; overflow-wrap: anywhere; }
+.pwa-offline svg { flex-shrink: 0; margin-top: 2px; }
+.pwa-offline strong { font-weight: 600; }
+.pwa-notice { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 12px; padding: 15px; border: 1px solid #dce3d4; border-radius: 11px; background: #f0f5eb; }
+.pwa-notice-icon { flex-shrink: 0; margin-top: 3px; color: #527045; }
+.pwa-notice-copy { flex: 1 1 180px; min-width: 0; }
+.pwa-notice-copy p { margin: 5px 0 0; color: #68755e; font-size: 12px; line-height: 1.65; overflow-wrap: anywhere; }
+.pwa-notice-copy .pwa-notice-title { margin-top: 0; color: #42533c; font-size: 14px; font-weight: 600; }
+.pwa-notice-actions, .pwa-settings-actions { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.pwa-notice-actions button, .pwa-settings-actions button, .pwa-dialog-actions button { min-height: 44px; max-width: 100%; height: auto; padding: 10px 13px; white-space: normal; overflow-wrap: anywhere; }
+.pwa-settings { min-width: 0; margin-top: 32px; padding: 22px 15px; border: 1px solid #dce3d4; border-radius: 14px; background: #f9fbf6; }
+.pwa-settings-heading { display: flex; align-items: center; gap: 11px; }
+.pwa-settings-heading svg { flex-shrink: 0; color: #71845f; }
+.pwa-settings-heading h2 { margin: 0; color: #42533c; font-size: 19px; line-height: 1.5; font-weight: 600; overflow-wrap: anywhere; }
+.pwa-settings > p, .pwa-storage-help p { margin: 13px 0 0; color: #6b775f; font-size: 13px; line-height: 1.75; overflow-wrap: anywhere; }
+.pwa-storage-help { margin-top: 13px; }
+.pwa-storage-help summary { min-height: 44px; padding: 10px 0; color: #425b3c; font-size: 13px; line-height: 1.75; cursor: pointer; touch-action: manipulation; overflow-wrap: anywhere; }
+.pwa-storage-help summary:focus-visible { outline: 3px solid #739379; outline-offset: 3px; border-radius: 4px; }
+.pwa-storage-help p { margin-top: 3px; }
+.pwa-settings .pwa-ready { display: flex; align-items: flex-start; gap: 9px; color: #527045; }
+.pwa-ready svg { flex-shrink: 0; margin-top: 2px; }
+.pwa-settings-actions { margin-top: 16px; }
+.pwa-update-dialog { width: calc(100% - 28px); max-width: 520px; max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); margin: auto; padding: 0; border: 1px solid #e0e5d8; border-radius: 16px; background: #fff; color: #293c31; box-shadow: 0 16px 70px #18251c33; overflow: auto; overscroll-behavior: contain; }
+.pwa-update-dialog::backdrop { background: #26332bb3; }
+.pwa-dialog-copy { padding: 22px 19px; }
+.pwa-dialog-copy h2 { margin: 0; color: #42533c; font-size: 22px; line-height: 1.35; font-weight: 600; letter-spacing: -.4px; }
+.pwa-dialog-copy p { margin: 12px 0 0; color: #6b775f; font-size: 13px; line-height: 1.75; overflow-wrap: anywhere; }
+.pwa-dialog-actions { position: sticky; bottom: 0; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 9px; padding: 15px 19px max(15px, env(safe-area-inset-bottom)); border-top: 1px solid #edf0e8; background: #fff; }
+.pwa-settings .pwa-error, .pwa-dialog-copy .pwa-error { color: #a55449; }
+@media (min-width: 600px) {
+  .pwa-settings { padding: 24px; }
+}
+@media (min-width: 701px) and (min-height: 600px) {
+  .pwa-status { padding-left: 32px; padding-right: max(32px, env(safe-area-inset-right)); }
+}
+@media (min-width: 1151px) and (min-height: 600px) {
+  .pwa-status { padding-left: 54px; padding-right: max(54px, env(safe-area-inset-right)); }
+}

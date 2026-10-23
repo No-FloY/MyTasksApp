@@ -456,6 +456,64 @@ preview и возможность повторить; отмена подтве�
 использует Blob и anchor download, импорт — стандартный file input; Chromium-only
 File System Access API не используется. Личные данные не отправляются на сервер.
 
+## PWA и обновления
+
+`vite-plugin-pwa` 2 / Workbox generateSW формирует manifest и production Service
+Worker. Manifest: name/short_name «Задачник», id/scope `/`, start_url `/#today`,
+display `standalone`, lang `ru`, theme `#214f3d`, background `#f8f9f5`.
+PNG 192/512, maskable 512 и Apple touch 180 созданы из существующего favicon.svg;
+`scripts/generate-pwa-icons.mjs` воспроизводит их без новых зависимостей.
+Manifest обеспечивает standalone на целевом iOS; viewport-fit=cover и safe-area
+сохранены, устаревшие capable/status-bar метатеги не добавлены.
+
+Precache включает index.html, все собранные JS/CSS, включая React.lazy-разделы,
+локальные SVG/PNG и manifest. Навигационный fallback ограничен `/` и `/index.html`;
+hash-routing не меняется. Runtime cache для произвольных запросов отсутствует.
+IndexedDB, Blob export, выбранные JSON и внешние сайты не кэшируются. Удаляются
+только устаревшие записи Workbox precache, не пользовательская БД.
+
+`src/pwa/client.ts` регистрирует `/sw.js` с updateViaCache:none один раз, вне
+React StrictMode. Начальная установка не перезагружает страницу. Готовность offline
+показывается после активации worker с успешно заполненным precache. Ошибка
+регистрации/сети доступна в настройках и не блокирует local-first интерфейс.
+Проверки обновления идут при загрузке, focus/visibility/online (не чаще минуты)
+и каждый час в видимом окне. Заголовки Vercel требуют revalidation SW, его
+activation-script и manifest; существующие проект, домен и GitHub pipeline сохранены.
+
+Новая версия остаётся waiting (`skipWaiting:false`). UI предлагает «Обновить»
+или «Позже»; отдельный native dialog предупреждает о несохранённых формах.
+Фоновая страница inert, перед activation read-транзакция всех таблиц дожидается
+ранее поставленных в очередь записей/import. `public/pwa-activation.js`, подключённый
+через стандартный Workbox importScripts, обрабатывает только SAFE_SKIP_WAITING:
+через clients.matchAll(includeUncontrolled:true) проверяет другие окна scope.
+Если они есть или проверка не удалась, activation откладывается. Это сохраняет
+их черновики и старые lazy chunks; после закрытия окон можно повторить.
+Только подтвердившая вкладка перезагружается при controllerchange. Самопроизвольного
+reload других вкладок нет. Проверка окон не является атомарной блокировкой открытия
+нового окна во время activation; такую гарантию браузерный API не предоставляет.
+
+IndexedDB остаётся `zadachnik`, schema v4, все пять таблиц/ID/связи и backup v1
+не меняются. PWA не добавляет миграцию, clear или reseed. Safari и Home Screen
+используют отдельные контейнеры: автоматическая передача IndexedDB не обещается.
+Первый online-запуск требуется установленному экземпляру. Ручной перенос
+выполняется существующим export/import, с его подтверждением замены.
+
+PWA E2E проверяют настоящий production SW, закрытие последней страницы и offline
+reopen, ранее не посещённые lazy-разделы, локальные записи и backup. Отдельный
+update suite переключает две реальные сборки и проверяет подтверждение,
+черновик другого окна, сохранение пяти таблиц/hash и новые модули offline.
+В используемом Playwright WebKit offline-транспорт ломает SW-навигацию и
+загрузку lazy-модулей даже при active/controller и cached index.html (HTTP 200).
+Новый offline-reopen сценарий явно пропущен только там; Chromium выполняет его
+полностью. Реальный A → B update, guard и БД проверяются в обоих движках.
+После update тест полностью останавливает origin-сервер: новый lazy chunk,
+закрытие последней страницы, повторный запуск и backup/import проверяются в обоих
+движках при недоступном сервере. Chromium дополнительно переводится в offline.
+Это обход ограничения эмуляции [Playwright #42775](https://github.com/microsoft/playwright/issues/42775),
+без подмены ответов/контроллера и без выключения Service Worker.
+Установка, offline, системный standalone и safe-area физического iPhone остаются
+ручной проверкой. Эмуляция размеров не утверждает наличие Home Screen контейнера.
+
 ## Границы этапа
 
 Интерфейс использует мобильную базу CSS, затем `min-width` для больших экранов.
@@ -470,6 +528,6 @@ WebKit с профилем iPhone входит в E2E-проверки. Пров
 Текущая hash-навигация работает на статическом хостинге.
 
 Статистика, настройки и backup используют существующие локальные данные.
-PWA, Service Worker, backend и синхронизация не реализованы; Этап 9 не начат.
+PWA и Service Worker сохраняют local-first модель; backend и синхронизация не реализованы.
 Категории задач, повторения, подзадачи, проекты, теги, drag-and-drop, уведомления,
 совместная работа и зависимости задач не входят в текущую реализацию.
