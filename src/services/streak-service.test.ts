@@ -104,7 +104,7 @@ describe('boolean streak queries', () => {
     const before = await database.habitEntries.toArray()
     await database.habits.update('reading', { archivedAt: timestamp })
     const results = await service.getBooleanStatistics(date('2026-10-01'))
-    expect(results).toHaveLength(7)
+    expect(results).toHaveLength(14)
     expect(results.find((row) => row.habit.id === 'english')).toMatchObject({
       currentStreak: 2, bestStreak: 2, successes: 2, failures: 0, successRate: 100,
     })

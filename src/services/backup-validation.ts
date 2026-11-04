@@ -1,14 +1,18 @@
 import { isLocalDate, type LocalDate } from '../lib/local-date'
+import { enrichLegacyHabit } from '../db/habit-backfill'
 import { BACKUP_FORMAT_VERSION, type BackupSnapshot } from '../models/backup'
 import type { DurationRatingRange } from '../models/duration-rating'
 import type { Goal, GoalMilestone } from '../models/goal'
 import type { Habit } from '../models/habit'
+import type { HabitSchedule } from '../models/habit-schedule'
+import { getHabitCategory, HABIT_CATEGORIES } from '../models/habit-category'
 import type { HabitEntry } from '../models/habit-entry'
 import type { Task } from '../models/task'
 import { validateRatingRanges } from './duration-service'
 import { MAX_GOAL_DESCRIPTION_LENGTH, MAX_GOAL_TITLE_LENGTH, MAX_MILESTONE_TITLE_LENGTH } from './goal-service'
 import { MAX_HABIT_NOTE_LENGTH } from './habit-note-service'
 import { MAX_TASK_DESCRIPTION_LENGTH, MAX_TASK_TITLE_LENGTH } from './task-service'
+import { getHabitEntryDate } from './habit-schedule'
 
 function invalid(path: string, reason: string): never {
   throw new Error(`Некорректная резервная копия: ${path} — ${reason}.`)
@@ -101,23 +105,55 @@ function ratingRange(value: unknown, path: string): DurationRatingRange {
   }
 }
 
-function habit(value: unknown, path: string): Habit {
-  const baseKeys = ['id', 'name', 'description', 'order', 'createdAt', 'updatedAt', 'archivedAt', 'type']
-  const row = object(value, path, [...baseKeys, 'unit', 'target', 'ratingRanges'])
+function schedule(value: unknown, path: string): HabitSchedule {
+  const row = object(value, path, ['type', 'days', 'weekday'])
+  const type = oneOf(row.type, `${path}.type`, ['daily', 'weekdays', 'weekly'])
+  object(value, path, ['type', ...(type === 'weekdays' ? ['days'] : type === 'weekly' ? ['weekday'] : [])])
+  const weekday = (value: unknown, valuePath: string) => {
+    const day = unsignedInteger(value, valuePath, 7)
+    if (day === 0) invalid(valuePath, 'день недели должен быть от 1 до 7')
+    return day
+  }
+  if (type === 'daily') return { type }
+  if (type === 'weekly') {
+    return { type, ...(Object.hasOwn(row, 'weekday') ? { weekday: weekday(row.weekday, `${path}.weekday`) } : {}) }
+  }
+  const days = rows(row.days, `${path}.days`, weekday)
+  if (days.length === 0 || new Set(days).size !== days.length) invalid(`${path}.days`, 'нужен непустой список неповторяющихся дней недели')
+  return { type, days }
+}
+
+function habit(value: unknown, path: string, formatVersion: 1 | 2 | 3): Habit {
+  const baseKeys = ['id', 'name', 'description', 'order', 'createdAt', 'updatedAt', 'archivedAt', 'type', ...(formatVersion >= 2 ? ['category'] : []), ...(formatVersion >= 3 ? ['schedule'] : [])]
+  const amountKeys = ['unit', 'target', ...(formatVersion >= 2 ? ['quickActions', 'manualMode'] : [])]
+  const row = object(value, path, [...baseKeys, ...amountKeys, 'ratingRanges'])
   const type = oneOf(row.type, `${path}.type`, ['boolean', 'amount', 'duration', 'rating'])
-  object(value, path, [...baseKeys, ...(type === 'amount' ? ['unit', 'target'] : type === 'duration' ? ['unit', 'ratingRanges'] : [])])
+  object(value, path, [...baseKeys, ...(type === 'amount' ? amountKeys : type === 'duration' ? ['unit', 'ratingRanges'] : [])])
+  const id = text(row.id, `${path}.id`, true)
   const base = {
-    id: text(row.id, `${path}.id`, true),
+    id,
+    category: formatVersion === 1 ? getHabitCategory(id) : oneOf(row.category, `${path}.category`, HABIT_CATEGORIES.map((category) => category.id)),
     name: text(row.name, `${path}.name`, true),
     description: text(row.description, `${path}.description`),
     order: unsignedInteger(row.order, `${path}.order`),
     ...times(row, path),
     archivedAt: row.archivedAt === null ? null : timestamp(row.archivedAt, `${path}.archivedAt`),
+    ...(Object.hasOwn(row, 'schedule') ? { schedule: schedule(row.schedule, `${path}.schedule`) } : {}),
   }
   if (type === 'amount') {
     const target = unsignedInteger(row.target, `${path}.target`)
     if (target === 0) invalid(`${path}.target`, 'значение должно быть больше нуля')
-    return { ...base, type, unit: text(row.unit, `${path}.unit`, true), target }
+    const fields = { ...base, type, unit: text(row.unit, `${path}.unit`, true), target }
+    // Version 1 conversion enriches only imported definitions. Replace imports
+    // deliberately do not add new seed habits or reinterpret their history.
+    if (formatVersion === 1) return enrichLegacyHabit(fields)
+    const quickActions = rows(row.quickActions, `${path}.quickActions`, (item, itemPath) => {
+      const delta = unsignedInteger(item, itemPath)
+      if (delta === 0) invalid(itemPath, 'быстрое добавление должно быть больше нуля')
+      return delta
+    })
+    if (new Set(quickActions).size !== quickActions.length) invalid(`${path}.quickActions`, 'быстрые действия не должны повторяться')
+    return { ...fields, quickActions, manualMode: oneOf(row.manualMode, `${path}.manualMode`, ['add', 'total']) }
   }
   if (type === 'duration') {
     const ratingRanges = rows(row.ratingRanges, `${path}.ratingRanges`, ratingRange)
@@ -219,11 +255,12 @@ export function validateBackupSnapshot(value: unknown): BackupSnapshot {
   if (root.formatVersion > BACKUP_FORMAT_VERSION) {
     throw new Error('Эта резервная копия создана более новой версией приложения и пока не поддерживается.')
   }
-  if (root.formatVersion !== BACKUP_FORMAT_VERSION) invalid('formatVersion', 'эта версия формата не поддерживается')
+  if (root.formatVersion !== 1 && root.formatVersion !== 2 && root.formatVersion !== BACKUP_FORMAT_VERSION) invalid('formatVersion', 'эта версия формата не поддерживается')
+  const formatVersion = root.formatVersion
   const exportedAt = timestamp(root.exportedAt, 'exportedAt')
   const source = object(root.data, 'data', ['habits', 'habitEntries', 'tasks', 'goals', 'goalMilestones'])
   const data = {
-    habits: rows(source.habits, 'data.habits', habit),
+    habits: rows(source.habits, 'data.habits', (value, path) => habit(value, path, formatVersion)),
     habitEntries: rows(source.habitEntries, 'data.habitEntries', habitEntry),
     tasks: rows(source.tasks, 'data.tasks', task),
     goals: rows(source.goals, 'data.goals', goal),
@@ -240,6 +277,9 @@ export function validateBackupSnapshot(value: unknown): BackupSnapshot {
     const parent = habits.get(entry.habitId)
     if (!parent) invalid(`data.habitEntries[${index}].habitId`, 'привычка не найдена в копии')
     if (parent.type !== entry.type) invalid(`data.habitEntries[${index}].type`, 'тип записи не соответствует привычке')
+    if (getHabitEntryDate(parent, entry.date) !== entry.date) {
+      invalid(`data.habitEntries[${index}].date`, 'недельная запись должна иметь дату понедельника своей недели')
+    }
   }
   for (const [index, item] of data.tasks.entries()) {
     if (item.goalId !== undefined && item.goalId !== null && !goals.has(item.goalId)) {

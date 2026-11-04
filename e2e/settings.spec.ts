@@ -43,7 +43,7 @@ function fixture(): BackupData {
 }
 
 function snapshot(data = fixture()): BackupSnapshot {
-  return { app: 'zadachnik', formatVersion: 1, exportedAt: instant.toISOString(), data }
+  return { app: 'zadachnik', formatVersion: 3, exportedAt: instant.toISOString(), data }
 }
 
 function watchErrors(page: Page) {
@@ -209,7 +209,7 @@ test('downloads all tables and restores an exact snapshot, including links and m
   const before = await readDatabase(page)
   const backup = await downloadBackup(page)
   expect(backup.app).toBe('zadachnik')
-  expect(backup.formatVersion).toBe(1)
+  expect(backup.formatVersion).toBe(3)
   expect(backup.exportedAt).toBe(instant.toISOString())
   expect(backup.data).toEqual(before)
   let dialog = await edit(page, 'english')
@@ -220,7 +220,7 @@ test('downloads all tables and restores an exact snapshot, including links and m
   await page.getByRole('button', { name: 'Восстановить из файла', exact: true }).click()
   await (await picker).setFiles({ name: 'previous.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(backup)) })
   const preview = page.getByRole('region', { name: 'Предпросмотр резервной копии', exact: true })
-  await expect(preview).toContainText('11')
+  await expect(preview).toContainText('23')
   await expect(preview).toContainText('6')
   expect(await readDatabase(page)).toEqual(changed) // Preview must be read-only.
   expect((await downloadBackup(page, 'Скачать текущую копию')).data).toEqual(changed)

@@ -141,7 +141,7 @@ export function useDayHabits(date: LocalDate, mode: 'today' | 'calendar') {
     if (writesInFlight.current.has(key)) return
     let amount: number
     try {
-      amount = mode === 'calendar'
+      amount = getAmountMode(habitId) === 'total'
         ? parseAmountTotalInput(getAmountInput(habitId))
         : parseAmountInput(amountInputs[key] ?? '')
     } catch (error) {
@@ -159,7 +159,7 @@ export function useDayHabits(date: LocalDate, mode: 'today' | 'calendar') {
       delete next[key]
       return next
     })
-    if (mode === 'calendar') {
+    if (getAmountMode(habitId) === 'total') {
       persist(habitId, () => setHabitAmount(habitId, date, amount),
         'Не удалось сохранить количество. Введённое значение осталось в форме.', onSuccess)
     } else addAmount(habitId, amount, onSuccess)
@@ -170,11 +170,16 @@ export function useDayHabits(date: LocalDate, mode: 'today' | 'calendar') {
   const amountHabits = currentState?.status === 'ready' ? currentState.amountHabits : []
   const durationHabits = currentState?.status === 'ready' ? currentState.durationHabits : []
 
+  function getAmountMode(habitId: string): 'add' | 'total' {
+    return mode === 'calendar' ? 'total'
+      : amountHabits.find((item) => item.habit.id === habitId)?.habit.manualMode ?? 'add'
+  }
+
   function getAmountInput(habitId: string): string {
     const draft = amountInputs[`${date}:${habitId}`]
     if (draft !== undefined) return draft
     const item = amountHabits.find((row) => row.habit.id === habitId)
-    return mode === 'calendar' && item?.hasEntry ? String(item.value) : ''
+    return getAmountMode(habitId) === 'total' && item?.hasEntry ? String(item.value) : ''
   }
 
   function getDurationDraft(habitId: string): DurationInput {

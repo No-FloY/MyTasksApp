@@ -2,6 +2,7 @@ import type { LocalDate } from '../../lib/local-date'
 import type { BooleanHabit } from '../../models/habit'
 import type { BooleanHabitStatus, HabitEntry } from '../../models/habit-entry'
 import { calculateBooleanStreak } from '../streak-service'
+import { isHabitExpectedOnDate } from '../habit-schedule'
 import { getHabitPeriodDates, type StatisticsPeriod } from './period-utils'
 
 export interface BooleanStatistics {
@@ -21,7 +22,9 @@ export interface BooleanStatistics {
 export function calculateBooleanStatistics(
   habit: BooleanHabit, entries: HabitEntry[], period: StatisticsPeriod, firstRecordedDate?: LocalDate,
 ): BooleanStatistics {
+  const recordedDates = new Set(entries.filter((entry) => entry.habitId === habit.id).map((entry) => entry.date))
   const dates = getHabitPeriodDates(habit, entries, period, firstRecordedDate)
+    .filter((date) => isHabitExpectedOnDate(habit, date) || recordedDates.has(date))
   const eligibleDates = new Set(dates)
   const selectedEntries = entries.filter((entry) => entry.habitId === habit.id && eligibleDates.has(entry.date))
   const byDate = new Map(selectedEntries.map((entry) => [entry.date, entry]))

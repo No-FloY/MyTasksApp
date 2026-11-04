@@ -1,7 +1,11 @@
 import type { DurationRatingRange } from './duration-rating'
+import type { HabitCategory } from './habit-category'
+import type { HabitSchedule } from './habit-schedule'
 
 interface HabitBase {
   id: string
+  category: HabitCategory
+  schedule?: HabitSchedule
   name: string
   description: string
   order: number
@@ -18,6 +22,8 @@ export interface AmountHabit extends HabitBase {
   type: 'amount'
   unit: string
   target: number
+  quickActions: number[]
+  manualMode: 'add' | 'total'
 }
 
 export interface DurationHabit extends HabitBase {

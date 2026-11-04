@@ -11,6 +11,14 @@ const booleanNames = [
   'Без газировок и соков',
   'Без энергетиков',
   'Без фастфуда',
+  'Без сладкого и шоколада',
+  'Пройти 10 км',
+  'Тренировка',
+  'Без алкоголя',
+  'Завтрак',
+  'Обед',
+  'Ужин',
+  'Уборка',
 ] as const
 
 function habitCard(page: Page, name: string = 'Воздержание') {
@@ -58,8 +66,8 @@ test('seeds universal habits once and preserves all three boolean states after r
 
   const initial = await readDatabase(page)
   expect(initial.stores.sort()).toEqual(['goalMilestones', 'goals', 'habitEntries', 'habits', 'tasks'])
-  expect(initial.habits).toHaveLength(11)
-  expect(initial.habits.filter((habit) => habit.type === 'boolean')).toHaveLength(8)
+  expect(initial.habits).toHaveLength(23)
+  expect(initial.habits.filter((habit) => habit.type === 'boolean')).toHaveLength(16)
   expect(initial.habits).toEqual(expect.arrayContaining([
     expect.objectContaining({ id: 'water', name: 'Вода', type: 'amount', target: 2000 }),
     expect.objectContaining({ id: 'gaming', type: 'duration' }),
@@ -81,7 +89,7 @@ test('seeds universal habits once and preserves all three boolean states after r
     await page.reload()
     await expect(habitCard(page).getByRole('button', { name: label, exact: true }))
       .toHaveAttribute('aria-pressed', 'true')
-    expect((await readDatabase(page)).habits).toHaveLength(11)
+    expect((await readDatabase(page)).habits).toHaveLength(23)
   }
 
   // Explicit no-data remains a single persisted record, rather than a deleted row.
@@ -156,8 +164,8 @@ test('shows a recoverable error when the browser denies IndexedDB access', async
     })
   })
   await page.goto('/')
-  await expect(page.locator('.habits-card').getByRole('alert')).toBeVisible()
-  await expect(page.locator('.habits-card').getByRole('button', { name: /Повторить|Попробовать снова/i })).toBeVisible()
+  await expect(page.locator('.day-habits').getByRole('alert')).toBeVisible()
+  await expect(page.locator('.day-habits').getByRole('button', { name: /Повторить|Попробовать снова/i })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Успех', exact: true })).toHaveCount(0)
 })
 
@@ -166,8 +174,8 @@ test('handles a browser without the IndexedDB API', async ({ page }) => {
     Object.defineProperty(window, 'indexedDB', { value: undefined })
   })
   await page.goto('/')
-  await expect(page.locator('.habits-card').getByRole('alert')).toBeVisible()
-  await expect(page.locator('.habits-card').getByRole('button', { name: 'Повторить загрузку' })).toBeVisible()
+  await expect(page.locator('.day-habits').getByRole('alert')).toBeVisible()
+  await expect(page.locator('.day-habits').getByRole('button', { name: 'Повторить загрузку' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Успех', exact: true })).toHaveCount(0)
 })
 

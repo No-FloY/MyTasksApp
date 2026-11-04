@@ -4,7 +4,7 @@ import type { HabitEntry } from './habit-entry'
 import type { Task } from './task'
 
 /** Backup compatibility is independent of the IndexedDB schema version. */
-export const BACKUP_FORMAT_VERSION = 1
+export const BACKUP_FORMAT_VERSION = 3
 
 export interface BackupData {
   habits: Habit[]

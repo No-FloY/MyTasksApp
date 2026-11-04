@@ -188,7 +188,7 @@ describe('duration persistence', () => {
     expect(rows[0]).toMatchObject({ minutes: 155, rating: { id: 'good' } })
     expect(rows[1]).toMatchObject({ minutes: 0, rating: { id: 'excellent' } })
     expect(await database.habitEntries.count()).toBe(2)
-    expect(await database.habits.count()).toBe(11)
+    expect(await database.habits.count()).toBe(23)
   })
 
   it('keeps each habit and local date independent', async () => {
@@ -223,7 +223,7 @@ describe('duration persistence', () => {
     for (const entry of before) {
       expect(await database.habitEntries.get([entry.habitId, entry.date])).toEqual(entry)
     }
-    expect((await habitService.getTodayHabits(today))).toHaveLength(8)
+    expect((await habitService.getTodayHabits(today))).toHaveLength(16)
     expect((await habitService.getTodayAmountHabits(today))[0]).toMatchObject({ value: 2400, status: 'success' })
   })
 

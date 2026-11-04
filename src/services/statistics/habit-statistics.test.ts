@@ -6,7 +6,7 @@ import { calculateBooleanStatistics } from './habit-statistics'
 import { getStatisticsPeriod } from './period-utils'
 
 const timestamp = '2026-09-20T10:00:00.000Z'
-const habit: BooleanHabit = { id: 'english', name: 'Английский', type: 'boolean', description: '', order: 0, createdAt: timestamp, updatedAt: timestamp, archivedAt: null }
+const habit: BooleanHabit = { id: 'english', name: 'Английский', type: 'boolean', category: 'self_development', description: '', order: 0, createdAt: timestamp, updatedAt: timestamp, archivedAt: null }
 function date(value: string): LocalDate {
   if (!isLocalDate(value)) throw new Error('Invalid fixture date')
   return value

@@ -44,7 +44,7 @@ describe('past and future boolean writes', () => {
 })
 
 describe('initial database', () => {
-  it('creates the 11 required habits without inventing results', async () => {
+  it('creates the 23 required habits without inventing results', async () => {
     const habits = await database.habits.orderBy('order').toArray()
     expect(habits.map((habit) => [habit.name, habit.type])).toEqual([
       ['Воздержание', 'boolean'],
@@ -58,6 +58,18 @@ describe('initial database', () => {
       ['Вода', 'amount'],
       ['Время в играх', 'duration'],
       ['Время в социальных сетях', 'duration'],
+      ['Без сладкого и шоколада', 'boolean'],
+      ['Отжимания', 'amount'],
+      ['Пресс', 'amount'],
+      ['Приседания', 'amount'],
+      ['Подтягивания', 'amount'],
+      ['Пройти 10 км', 'boolean'],
+      ['Тренировка', 'boolean'],
+      ['Без алкоголя', 'boolean'],
+      ['Завтрак', 'boolean'],
+      ['Обед', 'boolean'],
+      ['Ужин', 'boolean'],
+      ['Уборка', 'boolean'],
     ])
     expect(habits.find((habit) => habit.id === 'water')).toMatchObject({ target: 2000, unit: 'ml' })
     expect(habits.find((habit) => habit.id === 'gaming')).toMatchObject({ unit: 'minutes' })
@@ -75,7 +87,7 @@ describe('initial database', () => {
     service = new HabitService(database)
     await database.open()
 
-    expect(await database.habits.count()).toBe(10)
+    expect(await database.habits.count()).toBe(22)
     expect((await database.habits.get('english'))?.name).toBe('Моя практика английского')
     expect(await database.habits.get('water')).toBeUndefined()
     expect(await database.habitEntries.get(['english', today])).toMatchObject({ status: 'success' })
@@ -85,9 +97,9 @@ describe('initial database', () => {
 describe('boolean habit results', () => {
   it('returns only boolean habits and treats absent entries as no-data', async () => {
     const rows = await service.getTodayHabits(today)
-    expect(rows).toHaveLength(8)
+    expect(rows).toHaveLength(16)
     expect(rows.every((row) => row.habit.type === 'boolean' && row.status === 'no-data')).toBe(true)
-    expect(rows.map((row) => row.habit.order)).toEqual([0, 1, 2, 3, 4, 5, 6, 7])
+    expect(rows.map((row) => row.habit.order)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 11, 16, 17, 18, 19, 20, 21, 22])
     expect(await database.habitEntries.count()).toBe(0)
   })
 

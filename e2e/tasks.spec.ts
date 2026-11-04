@@ -756,7 +756,7 @@ test('migrates version two without losing habit history, notes or rating setting
   await expect(page.locator('[data-duration-habit-id="gaming"] .duration-total')).toHaveText('2 ч 35 мин')
   await expect(page.locator('[data-duration-habit-id="social-media"] .duration-total')).toHaveText('0 ч 0 мин')
   const migrated = await readDatabase(page)
-  expect(migrated.version).toBe(40)
+  expect(migrated.version).toBe(60)
   expect(migrated.stores.sort()).toEqual(['goalMilestones', 'goals', 'habitEntries', 'habits', 'tasks'])
   expect(migrated.indexes.sort()).toEqual(['date', 'goalId', 'status'])
   expect(migrated.habits).toEqual(expect.arrayContaining(habits))

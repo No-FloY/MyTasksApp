@@ -149,7 +149,7 @@ describe('statistics snapshot from IndexedDB', () => {
     expect(result.tasks).toMatchObject({ tasksDue: 2, failed: 1, completedOnTime: 1, onTimeRate: 50 })
     expect(result.goals).toMatchObject({ activeGoals: 1, averageProgress: 100 })
     expect(await Promise.all(database.tables.map((table) => table.toArray()))).toEqual(before)
-    expect(database.verno).toBe(4)
+    expect(database.verno).toBe(6)
     expect(database.tables.map((table) => table.name).sort()).toEqual(['goalMilestones', 'goals', 'habitEntries', 'habits', 'tasks'])
   })
 

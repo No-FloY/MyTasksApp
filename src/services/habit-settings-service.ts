@@ -1,6 +1,7 @@
 import { db, type TaskTrackerDatabase } from '../db/database'
 import type { DurationRatingRange } from '../models/duration-rating'
 import type { Habit } from '../models/habit'
+import { isHabitCategory, type HabitCategory } from '../models/habit-category'
 import { validateRatingRanges } from './duration-service'
 
 export const MAX_HABIT_NAME_LENGTH = 200
@@ -11,6 +12,7 @@ export const MAX_RATING_EMOJI_LENGTH = 32
 interface HabitSettingsBase {
   name: string
   description: string
+  category?: HabitCategory
 }
 
 export type HabitSettingsInput =
@@ -51,7 +53,13 @@ function normalizeInput(input: HabitSettingsInput): HabitSettingsInput {
   if (input.description.trim().length > MAX_HABIT_DESCRIPTION_LENGTH) {
     throw new Error(`Описание не должно превышать ${MAX_HABIT_DESCRIPTION_LENGTH} символов.`)
   }
-  const fields = { name: input.name.trim(), description: input.description.trim() }
+  if (input.category !== undefined && !isHabitCategory(input.category)) {
+    throw new Error('Выберите существующую категорию привычки.')
+  }
+  const fields = {
+    name: input.name.trim(), description: input.description.trim(),
+    ...(input.category === undefined ? {} : { category: input.category }),
+  }
   switch (input.type) {
     case 'boolean':
     case 'rating':
@@ -85,7 +93,10 @@ export class HabitSettingsService {
       if (previous.type !== fields.type) throw new Error('Тип привычки нельзя изменить.')
       // Read the current row inside the transaction: a stale form must not undo
       // archival, ordering, or identity fields changed by another operation.
-      const shared = { name: fields.name, description: fields.description, updatedAt: new Date().toISOString() }
+      const shared = {
+        name: fields.name, description: fields.description, updatedAt: new Date().toISOString(),
+        ...(fields.category === undefined ? {} : { category: fields.category }),
+      }
       let next: Habit
       if (previous.type === 'amount' && fields.type === 'amount') {
         next = { ...previous, ...shared, target: fields.target }

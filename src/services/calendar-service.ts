@@ -5,6 +5,7 @@ import type { Habit } from '../models/habit'
 import type { HabitEntry } from '../models/habit-entry'
 import { readDurationMinutes } from './duration-service'
 import { getAmountHabitProgress, HabitService } from './habit-service'
+import { getHabitEntryDate, isHabitExpectedOnDate } from './habit-schedule'
 
 export interface DaySummary {
   status: 'no-data' | 'partial' | 'complete'
@@ -23,13 +24,13 @@ export interface CalendarMonthData {
 
 export function computeDaySummary(habits: Habit[], entries: HabitEntry[], date: LocalDate): DaySummary {
   if (!isLocalDate(date)) throw new Error('Некорректная календарная дата.')
-  const supported = habits.filter((habit) => habit.archivedAt === null && habit.type !== 'rating')
-  const byHabit = new Map(entries.filter((entry) => entry.date === date).map((entry) => [entry.habitId, entry]))
+  const supported = habits.filter((habit) => habit.archivedAt === null && habit.type !== 'rating' && isHabitExpectedOnDate(habit, date))
+  const byHabit = new Map(entries.map((entry) => [`${entry.habitId}:${entry.date}`, entry]))
   let recorded = 0
   let successes = 0
   let failures = 0
   for (const habit of supported) {
-    const entry = byHabit.get(habit.id)
+    const entry = byHabit.get(`${habit.id}:${getHabitEntryDate(habit, date)}`)
     if (!entry) continue
     if (habit.type !== entry.type) throw new Error('Тип сохранённой записи не соответствует привычке.')
     if (entry.type === 'boolean') {

@@ -30,7 +30,7 @@ function entry(habitId: string, entryDate = selectedDate): HabitEntry {
 describe('computed daily calendar summary', () => {
   it('treats absent records and explicit boolean no-data as unrecorded rather than failures', () => {
     expect(computeDaySummary(habits, [], selectedDate)).toEqual({
-      status: 'no-data', recorded: 0, total: 11, successes: 0, failures: 0,
+      status: 'no-data', recorded: 0, total: 22, successes: 0, failures: 0,
     })
     const noData: HabitEntry = { ...entry('english'), type: 'boolean', status: 'no-data' }
     expect(computeDaySummary(habits, [noData], selectedDate)).toEqual(computeDaySummary(habits, [], selectedDate))
@@ -38,14 +38,14 @@ describe('computed daily calendar summary', () => {
 
   it('counts recorded amount and duration zero and distinguishes them from missing records', () => {
     expect(computeDaySummary(habits, [entry('water'), entry('gaming')], selectedDate)).toEqual({
-      status: 'partial', recorded: 2, total: 11, successes: 0, failures: 0,
+      status: 'partial', recorded: 2, total: 22, successes: 0, failures: 0,
     })
   })
 
   it('marks all recorded habits complete even when boolean outcomes are failures', () => {
     const entries = habits.map((habit) => entry(habit.id))
     expect(computeDaySummary(habits, entries, selectedDate)).toEqual({
-      status: 'complete', recorded: 11, total: 11, successes: 0, failures: 8,
+      status: 'complete', recorded: 22, total: 22, successes: 0, failures: 15,
     })
   })
 
@@ -55,7 +55,7 @@ describe('computed daily calendar summary', () => {
       { ...entry('water'), type: 'amount', value: 2400 }, entry('gaming'),
     ]
     expect(computeDaySummary(habits, entries, selectedDate)).toEqual({
-      status: 'partial', recorded: 4, total: 11, successes: 1, failures: 1,
+      status: 'partial', recorded: 4, total: 22, successes: 1, failures: 1,
     })
   })
 
@@ -139,7 +139,7 @@ describe('calendar month data from existing IndexedDB tables', () => {
     const data = await service.getMonth(selectedDate)
     expect(habitQuery).toHaveBeenCalledExactlyOnceWith('order')
     expect(entryQuery).toHaveBeenCalledExactlyOnceWith('date')
-    expect(data.habits).toHaveLength(11)
+    expect(data.habits).toHaveLength(23)
     expect(data.entries).toHaveLength(3)
     expect(Object.keys(data.summaries)).toHaveLength(35)
     expect(data.summaries['2026-09-28']).toMatchObject({ status: 'partial', recorded: 1 })
@@ -154,7 +154,7 @@ describe('calendar month data from existing IndexedDB tables', () => {
     const data = await service.getMonth(selectedDate)
     expect(data.habits.find((habit) => habit.id === 'english')?.archivedAt).toBe(timestamp)
     expect(data.entries).toEqual(before)
-    expect(data.summaries[selectedDate]).toMatchObject({ status: 'no-data', total: 10, failures: 0 })
+    expect(data.summaries[selectedDate]).toMatchObject({ status: 'no-data', total: 21, failures: 0 })
     expect(await database.habitEntries.toArray()).toEqual(before)
     expect(database.tables.map((table) => table.name).sort()).toEqual(['goalMilestones', 'goals', 'habitEntries', 'habits', 'tasks'])
   })

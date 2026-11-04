@@ -84,7 +84,7 @@ export function DayInsights({ date }: { date: LocalDate }) {
       <ArchivedDayHistory rows={data.notes} />
       <section className="day-insight-card" aria-labelledby={`${id}-notes`}>
         <h2 id={`${id}-notes`}>Заметки к привычкам</h2>
-        <p className="day-insight-description">Контекст и наблюдения за выбранный день.</p>
+        <p className="day-insight-description">Контекст и наблюдения за выбранный день. У недельных привычек одна общая заметка на неделю.</p>
         {selected ? (
           <form className="habit-note-form" onSubmit={(event) => { void saveNote(event) }}>
             <label htmlFor={`${id}-habit`}>Привычка для заметки</label>

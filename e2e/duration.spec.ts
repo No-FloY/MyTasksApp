@@ -169,9 +169,9 @@ test('migrates the existing version-one database without losing boolean, water o
       }
     }
   }))
-  expect(migrated.version).toBe(40)
+  expect(migrated.version).toBe(60)
   expect(migrated.stores.sort()).toEqual(['goalMilestones', 'goals', 'habitEntries', 'habits', 'tasks'])
-  expect(migrated.habits).toHaveLength(11)
+  expect(migrated.habits).toHaveLength(23)
   expect(migrated.habits).toEqual(expect.arrayContaining(initialHabits))
   expect(await readEntries(page)).toHaveLength(legacyEntries.length)
   expect(await readEntries(page)).toEqual(expect.arrayContaining(legacyEntries))
@@ -403,9 +403,11 @@ test('fits duration inputs and weekly statistics on 320, 375 and 390px screens',
     await expect(statisticsCard(page, 'gaming').locator('[data-statistic="total"]')).toContainText('2 ч 35 мин')
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
     for (const habitId of ['gaming', 'social-media'] as const) {
-      expect(await statisticsCard(page, habitId).evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true)
+      const card = statisticsCard(page, habitId)
+      expect(await card.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true)
+      // The complete dashboard exceeds WebKit's screenshot height limit on mobile.
+      await card.screenshot({ path: `.artifacts/duration-statistics-${habitId}-${testInfo.project.name}-${width}.png` })
     }
-    await page.screenshot({ path: `.artifacts/duration-statistics-${testInfo.project.name}-${width}.png`, fullPage: true })
     await page.getByRole('navigation', { name: 'Разделы приложения' })
       .getByRole('link', { name: 'Сегодня', exact: true }).click()
     await expectTime(gaming, 155, 'Хорошо')

@@ -104,7 +104,7 @@ async function seedDatabase(page: Page, source: StatisticsFixture) {
   }))
   await page.goto('/statistics-fixture')
   await page.evaluate(async (source) => new Promise<void>((resolve, reject) => {
-    const request = indexedDB.open('zadachnik', 40)
+    const request = indexedDB.open('zadachnik', 60)
     request.onerror = () => reject(request.error)
     request.onupgradeneeded = () => {
       const database = request.result
@@ -202,7 +202,7 @@ test('uses saved boolean, water and duration facts, distinguishes zero from miss
   await expect(metric(habit(page, 'amount', 'water'), 'total')).toHaveText(/6\s000/)
   await expect(metric(habit(page, 'duration', 'gaming'), 'total')).toHaveText('12 ч 0 мин')
   expect(await readSnapshot(page)).toEqual(before)
-  expect(before.version).toBe(40)
+  expect(before.version).toBe(60)
   expect(Object.keys(before).sort()).toEqual(['goalMilestones', 'goals', 'habitEntries', 'habits', 'tasks', 'version'])
 })
 

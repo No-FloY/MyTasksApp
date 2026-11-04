@@ -483,7 +483,7 @@ test('upgrades native version 30 preserving active and completed tasks, habit hi
   }), { habits, entries, tasks })
   await openGoals(page)
   const migrated = await readDatabase(page)
-  expect(migrated.version).toBe(40)
+  expect(migrated.version).toBe(60)
   expect(migrated.stores.sort()).toEqual(['goalMilestones', 'goals', 'habitEntries', 'habits', 'tasks'])
   expect(migrated.tasks).toEqual(tasks)
   expect(migrated.tasks.every((task) => !Object.hasOwn(task, 'goalId'))).toBe(true)

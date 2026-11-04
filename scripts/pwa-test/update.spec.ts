@@ -16,6 +16,13 @@ test('detects a real second build and updates only after consent and closing ano
     page.on('pageerror', (error) => errors.push(error.message))
     await page.clock.setFixedTime(instant)
     await seed(page)
+    const exercise = page.locator('[data-amount-habit-id="push-ups"]')
+    await exercise.getByRole('button', { name: /^\+10/ }).click()
+    await expect(exercise.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '10')
+    await page.locator('[data-habit-id="no-alcohol"]').getByRole('button', { name: 'Не пил', exact: true }).click()
+    await page.locator('[data-habit-id="breakfast"]').getByRole('button', { name: 'Был', exact: true }).click()
+    await page.locator('[data-habit-id="cleaning"]').getByRole('button', { name: 'Выполнено', exact: true }).click()
+    await expect(page.locator('[data-habit-id="cleaning"]').getByRole('button', { name: 'Выполнено', exact: true })).toHaveAttribute('aria-pressed', 'true')
     const supported = await page.evaluate(() => 'serviceWorker' in navigator)
     test.skip(!supported, 'This browser runtime does not expose Service Worker; a real iPhone is required for standalone update verification.')
     await waitForServiceWorker(page)
@@ -98,6 +105,29 @@ test('detects a real second build and updates only after consent and closing ano
     await restoreBackup(reopened, backup)
     await reopened.reload()
     expect(await readDatabase(reopened)).toEqual(before)
+    await reopened.goto('/#today')
+    const offlineExercise = reopened.locator('[data-amount-habit-id="push-ups"]')
+    await offlineExercise.getByRole('button', { name: /^\+10/ }).click()
+    await expect(offlineExercise.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '20')
+    await offlineExercise.getByText('Указать итог дня', { exact: true }).click()
+    await offlineExercise.getByLabel(/^Итог за день/).fill('130')
+    await offlineExercise.getByRole('button', { name: 'Сохранить количество', exact: true }).click()
+    await expect(offlineExercise.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '100')
+    await reopened.locator('[data-habit-id="no-alcohol"]').getByRole('button', { name: 'Пил', exact: true }).click()
+    for (const id of ['lunch', 'dinner']) {
+      await reopened.locator(`[data-habit-id="${id}"]`).getByRole('button', { name: 'Был', exact: true }).click()
+    }
+    await reopened.locator('[data-habit-id="cleaning"]').getByRole('button', { name: 'Не выполнено', exact: true }).click()
+    await reopened.reload()
+    const offline = await readDatabase(reopened)
+    expect(offline.habitEntries.find((entry) => entry.habitId === 'push-ups')).toMatchObject({ value: 130 })
+    expect(offline.habitEntries.find((entry) => entry.habitId === 'no-alcohol')).toMatchObject({ status: 'failure' })
+    expect(offline.habitEntries.filter((entry) => entry.habitId === 'cleaning')).toEqual([
+      expect.objectContaining({ status: 'failure', date: '2026-10-19' }),
+    ])
+    for (const id of ['breakfast', 'lunch', 'dinner']) {
+      expect(offline.habitEntries.find((entry) => entry.habitId === id)).toMatchObject({ status: 'success' })
+    }
     expect(errors).toEqual([])
   } finally {
     await context.close()

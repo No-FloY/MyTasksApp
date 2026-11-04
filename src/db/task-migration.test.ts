@@ -55,7 +55,7 @@ async function createVersionTwoDatabase() {
       return habit
     })
   habits.push({
-    id: 'personal-rating', type: 'rating', name: 'Моя оценка', description: 'Пользовательская привычка',
+    id: 'personal-rating', category: 'self_development', type: 'rating', name: 'Моя оценка', description: 'Пользовательская привычка',
     order: 40, createdAt, updatedAt, archivedAt: null,
   })
   const timestamps = { createdAt, updatedAt }
@@ -88,7 +88,7 @@ afterEach(async () => {
   for (const name of names) await Dexie.delete(name)
 })
 
-describe('task store migration from IndexedDB v2 through v3 to v4', () => {
+describe('task store migration from IndexedDB v2 through the current schema', () => {
   it('adds empty task and goal stores and preserves all existing values, timestamps and habit indexes exactly', async () => {
     const legacy = await createVersionTwoDatabase()
     const originalHabits = await legacy.habits.toArray()
@@ -99,7 +99,7 @@ describe('task store migration from IndexedDB v2 through v3 to v4', () => {
 
     const current = await openCurrentDatabase(legacy.name)
 
-    expect(current.verno).toBe(4)
+    expect(current.verno).toBe(6)
     expect(current.tables.map((table) => table.name).sort()).toEqual(['goalMilestones', 'goals', 'habitEntries', 'habits', 'tasks'])
     expect(await current.habits.toArray()).toStrictEqual(originalHabits)
     expect(await current.habitEntries.toArray()).toStrictEqual(originalEntries)
@@ -131,7 +131,7 @@ describe('task store migration from IndexedDB v2 through v3 to v4', () => {
 
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const reopened = await openCurrentDatabase(legacy.name)
-      expect(reopened.verno).toBe(4)
+      expect(reopened.verno).toBe(6)
       expect(await reopened.tasks.toArray()).toStrictEqual([completed])
       expect(await reopened.tasks.where('date').equals(thirdDay).toArray()).toStrictEqual([completed])
       expect(await reopened.tasks.where('status').equals('completed').toArray()).toStrictEqual([completed])

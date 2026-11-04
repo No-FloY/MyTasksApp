@@ -1,0 +1,32 @@
+.day-score-card { min-width: 0; margin: 0 0 22px; padding: 18px; border: 1px solid #dce5d6; border-radius: 12px; background: #f7faf3; color: #40583d; }
+.day-score-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.day-score-heading > div { min-width: 0; }
+.day-score-heading h2 { margin: 0 0 5px; font-size: 17px; font-weight: 600; line-height: 1.4; }
+.day-score-heading time, .day-score-dates { color: #6b7961; font-size: 12px; line-height: 1.6; }
+.day-score-dates { margin: 0; }
+.day-score-value { font-size: 24px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.day-score-coverage { margin: 13px 0 0; font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+.day-score-interpretation, .day-score-warning { margin: 7px 0 0; font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+.day-score-warning { color: #806839; }
+.day-score-details { margin-top: 10px; min-width: 0; }
+.day-score-details summary { min-height: 44px; padding: 12px 0; font-size: 12px; line-height: 1.7; cursor: pointer; }
+.day-score-details summary:focus-visible { outline: 2px solid #476951; outline-offset: 3px; border-radius: 4px; }
+.day-score-details p { font-size: 12px; line-height: 1.7; color: #69765f; }
+.day-score-categories { margin: 5px 0 14px; }
+.day-score-categories > div { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid #e2e9dc; font-size: 13px; }
+.day-score-categories dt { min-width: 0; overflow-wrap: anywhere; }
+.day-score-categories dd { margin: 0; text-align: right; font-weight: 600; overflow-wrap: anywhere; }
+.day-score-categories small, .weekly-score-table small { display: block; font-size: 11px; color: #76836c; line-height: 1.6; font-weight: 400; }
+.day-score-loading { color: #6b7961; font-size: 12px; }
+.weekly-score-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 20px 0; }
+.weekly-score-metrics dt { color: #6b7961; font-size: 12px; line-height: 1.6; }
+.weekly-score-metrics dd { margin: 3px 0 0; font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.weekly-score-table-wrap { min-width: 0; }
+.weekly-score-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 11px; line-height: 1.6; font-variant-numeric: tabular-nums; }
+.weekly-score-table caption { text-align: left; padding: 10px 0; }
+.weekly-score-table th, .weekly-score-table td { padding: 9px 4px; border-top: 1px solid #e2e9dc; font-weight: 400; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+@media (min-width: 700px) { .weekly-score-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.weekly-score-goals { display: grid; gap: 8px; margin: 12px 0; }
+.weekly-score-goals > div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.weekly-score-goals dt { min-width: 0; overflow-wrap: anywhere; color: #596953; font-size: 13px; }
+.weekly-score-goals dd { flex-shrink: 0; margin: 0; color: #355842; font-size: 14px; font-weight: 600; }

@@ -8,11 +8,14 @@ import { getStatisticsPeriod, isStatisticsPreset } from '@/services/statistics/p
 import { AmountStatisticsCard } from './AmountStatisticsCard'
 import { DurationStatisticsCard } from './DurationStatisticsCard'
 import { HabitStatistics } from './HabitStatistics'
+import { FoodRoutineStatistics } from './FoodRoutineStatistics'
 import { PeriodPicker } from './PeriodPicker'
 import { StatisticsSummary } from './StatisticsSummary'
 import { TaskStatisticsCard } from './TaskStatisticsCard'
 import { GoalStatisticsCard } from './GoalStatisticsCard'
 import { WeeklyStatistics } from './WeeklyStatistics'
+import { DayScoreCard } from './DayScore'
+import { WeeklyScoreCard } from './WeeklyScoreCard'
 import { useStatistics } from './use-statistics'
 import './statistics.css'
 
@@ -43,6 +46,9 @@ export default function StatisticsPage() {
       {data && !error && <>
         {!data.hasPeriodData && <p className="statistics-empty" data-testid="statistics-empty">За выбранный период пока нет данных. Отмечайте привычки и добавляйте задачи — здесь появятся результаты.</p>}
         <StatisticsSummary data={data} />
+        <DayScoreCard data={data.dayScore} />
+        <WeeklyScoreCard data={data.weeklyScore} />
+        <FoodRoutineStatistics data={data} />
         <HabitStatistics data={data} />
         {data.amounts.map((item) => <AmountStatisticsCard key={item.habit.id} data={item} />)}
         <div className="duration-weeks">{data.durations.map((item) => <DurationStatisticsCard key={item.habit.id} data={item} />)}</div>

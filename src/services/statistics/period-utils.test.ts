@@ -11,7 +11,7 @@ function date(value: string): LocalDate {
 
 const today = date('2026-10-16')
 const habit: BooleanHabit = {
-  id: 'english', name: 'Английский', description: '', type: 'boolean', order: 0,
+  id: 'english', name: 'Английский', description: '', type: 'boolean', category: 'self_development', order: 0,
   createdAt: '2026-10-13T12:00:00.000Z', updatedAt: '2026-10-13T12:00:00.000Z', archivedAt: null,
 }
 function entry(day: string): BooleanHabitEntry {

@@ -3,7 +3,9 @@ import { AlertCircle, Archive, ArchiveRestore, LoaderCircle, Pencil, SlidersHori
 import { Button } from '@/components/ui/button'
 import { PwaSettings } from '@/components/pwa/PwaSettings'
 import type { Habit } from '@/models/habit'
+import { HABIT_CATEGORIES, getHabitCategory } from '@/models/habit-category'
 import { setHabitArchived } from '@/services/habit-settings-service'
+import { isWeeklyHabit } from '@/services/habit-schedule'
 import { BackupSettings } from './BackupSettings'
 import { HabitSettingsDialog } from './HabitSettingsDialog'
 import { useSettingsHabits } from './use-settings-habits'
@@ -83,7 +85,8 @@ export default function SettingsPage() {
                     <h3 id={`settings-habit-${habit.id}-title`}>{habit.name}</h3>
                     <span className={`settings-habit-status${archived ? ' is-archived' : ''}`}>{archived ? 'В архиве' : 'Активна'}</span>
                   </div>
-                  <p className="settings-habit-type">Тип: {typeLabels[habit.type]}</p>
+                  <p className="settings-habit-type">Тип: {isWeeklyHabit(habit) ? 'Отметка недели' : typeLabels[habit.type]}</p>
+                  <p className="settings-habit-type">Категория: {HABIT_CATEGORIES.find((category) => category.id === getHabitCategory(habit))?.label}</p>
                   {habit.description && <p className="settings-habit-description">{habit.description}</p>}
                   {habit.type === 'amount' && <p className="settings-habit-target">Дневная цель: <strong>{habit.target.toLocaleString('ru-RU')} {habit.unit}</strong></p>}
                   {habit.type === 'duration' && <>

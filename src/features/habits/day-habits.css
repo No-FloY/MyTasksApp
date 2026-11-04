@@ -1,0 +1,27 @@
+.day-habits { min-width: 0; }
+.day-habits-heading { padding: 0 0 16px; }
+.habit-category { --category-color: #6b8561; min-width: 0; margin-bottom: 22px; }
+.habit-category[data-habit-category="food_water"] { --category-color: #5c8d7b; }
+.habit-category[data-habit-category="training"] { --category-color: #a18151; }
+.habit-category[data-habit-category="routine"] { --category-color: #7e8462; }
+.habit-category[data-habit-category="study_work"] { --category-color: #7185a4; }
+.habit-category[data-habit-category="screen_time"] { --category-color: #8b77a0; }
+.habit-category[data-habit-category="self_development"] { --category-color: #ad7c78; }
+.habit-category-heading { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding-left: 11px; border-left: 4px solid var(--category-color); }
+.habit-category-heading h3 { min-width: 0; margin: 0; color: #445541; font-size: 16px; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
+.habit-category-heading > span { flex-shrink: 0; color: #687462; font-size: 12px; }
+.habit-category-heading > button { flex: 0 0 44px; min-height: 44px; margin-left: auto; }
+.habit-category-heading h3 { flex: 1; }
+.habit-copy .habit-schedule-label { color: #5e7057; font-weight: 500; }
+.habit-row .status-button { white-space: normal; height: auto; line-height: 1.25; }
+.category-amounts { display: grid; gap: 12px; min-width: 0; }
+.category-amounts .amount-tracker { margin-bottom: 0; }
+.category-amounts + .category-booleans { margin-top: 12px; }
+.habit-category .duration-trackers { margin-bottom: 0; }
+.category-booleans .habit-list { margin: 0; }
+
+@media (min-width: 1000px) {
+  .category-amounts:has(> :nth-child(2)) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .category-amounts:has(> :nth-child(2)) .amount-tracker-card { grid-template-columns: minmax(0, 1fr); gap: 14px; padding: 18px; }
+  .category-amounts:has(> :nth-child(2)) .amount-controls { padding-left: 0; border-left: 0; }
+}

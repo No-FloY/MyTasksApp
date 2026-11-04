@@ -4,6 +4,7 @@ import { TaskTrackerDatabase } from '../db/database'
 import { getLocalDate, isLocalDate, type LocalDate } from '../lib/local-date'
 import type { DurationRatingRange } from '../models/duration-rating'
 import type { Habit } from '../models/habit'
+import { HABIT_CATEGORIES } from '../models/habit-category'
 import type { HabitEntry } from '../models/habit-entry'
 import { BackupService, parseBackupJson } from './backup-service'
 import { CalendarService } from './calendar-service'
@@ -75,7 +76,7 @@ describe('habit settings on the existing universal model', () => {
     await service.setHabitArchived('english', true)
     await database.habits.update('english', { order: 100 })
     const habits = await service.getHabits()
-    expect(habits).toHaveLength(11)
+    expect(habits).toHaveLength(23)
     expect(habits.at(-1)).toMatchObject({ id: 'english', order: 100, archivedAt: new Date().toISOString() })
     expect(habits.map((habit) => habit.order)).toEqual(habits.map((habit) => habit.order).sort((a, b) => a - b))
   })
@@ -99,6 +100,34 @@ describe('habit settings on the existing universal model', () => {
     await service.updateHabit('mood', { type: 'rating', name: 'Самочувствие', description: 'Моя оценка' })
     expect(await getHabit('mood')).toMatchObject({ id: 'mood', type: 'rating', name: 'Самочувствие' })
     expect(await database.habitEntries.get(['mood', past])).toEqual(entry)
+  })
+
+  it.each(HABIT_CATEGORIES)('moves a habit to $id without changing historical facts or its amount configuration', async ({ id: category }) => {
+    const history = await seedHistory()
+    await service.setHabitArchived('water', true)
+    const previous = await getHabit('water')
+    if (previous.type !== 'amount') throw new Error('Expected amount fixture')
+    vi.setSystemTime(new Date(2026, 9, 21, 12))
+    await service.updateHabit('water', {
+      type: previous.type, name: previous.name, description: previous.description,
+      target: previous.target, category,
+    })
+    expect(await getHabit('water')).toEqual({ ...previous, category, updatedAt: new Date().toISOString() })
+    expect(await database.habitEntries.toArray()).toEqual(history)
+  })
+
+  it('keeps the latest category when a legacy caller omits it', async () => {
+    await database.habits.update('water', { category: 'self_development' })
+    await service.updateHabit('water', amountInput)
+    expect(await getHabit('water')).toMatchObject({ category: 'self_development', target: 2500, quickActions: [200, 400], manualMode: 'add' })
+  })
+
+  it.each(['', 'training ', 'Тренировка', 'other', null, 1, [], {}])('rejects unknown runtime category %j without changing facts', async (category) => {
+    const history = await seedHistory()
+    const previous = await getHabit('english')
+    await expect(service.updateHabit('english', { ...booleanInput, category } as HabitSettingsInput)).rejects.toThrow('категорию')
+    expect(await getHabit('english')).toEqual(previous)
+    expect(await database.habitEntries.toArray()).toEqual(history)
   })
 
   it('changes the amount target and reclassifies statistics without rewriting facts', async () => {
@@ -191,13 +220,13 @@ describe('habit settings on the existing universal model', () => {
     const history = await seedHistory()
     for (const id of ['english', 'water', 'gaming', 'social-media']) await service.setHabitArchived(id, true)
     expect((await results.getTodayHabits(past)).some(({ habit }) => habit.id === 'english')).toBe(false)
-    expect(await results.getTodayAmountHabits(past)).toEqual([])
+    expect((await results.getTodayAmountHabits(past)).map(({ habit }) => habit.id)).toEqual(['push-ups', 'abs', 'squats', 'pull-ups'])
     expect(await durations.getTodayDurationHabits(past)).toEqual([])
     expect(await database.habitEntries.toArray()).toEqual(history)
-    expect(await database.habits.count()).toBe(11)
+    expect(await database.habits.count()).toBe(23)
     for (const id of ['english', 'water', 'gaming', 'social-media']) await service.setHabitArchived(id, false)
     expect((await results.getTodayHabits(past)).find(({ habit }) => habit.id === 'english')?.status).toBe('success')
-    expect((await results.getTodayAmountHabits(past))[0]?.value).toBe(2200)
+    expect((await results.getTodayAmountHabits(past)).find(({ habit }) => habit.id === 'water')?.value).toBe(2200)
     expect((await durations.getTodayDurationHabits(past)).map((item) => item.minutes)).toEqual([90, 0])
     expect(await database.habitEntries.toArray()).toEqual(history)
   })

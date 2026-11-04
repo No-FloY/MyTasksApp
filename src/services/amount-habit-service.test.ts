@@ -97,7 +97,7 @@ describe('absolute amount editing', () => {
 describe('amount habit results', () => {
   it('reads the existing water seed as no-data without inventing an entry', async () => {
     const rows = await service.getTodayAmountHabits(today)
-    expect(rows).toHaveLength(1)
+    expect(rows).toHaveLength(5)
     expect(rows[0]).toMatchObject({
       habit: { id: 'water', type: 'amount', target: 2000, unit: 'ml' },
       value: 0,
@@ -161,7 +161,7 @@ describe('amount habit results', () => {
     expect((await service.getTodayAmountHabits(today))[0]).toMatchObject({
       value: 2400, status: 'success', progress: 100,
     })
-    expect(await database.habits.count()).toBe(11)
+    expect(await database.habits.count()).toBe(23)
     expect(await database.habitEntries.count()).toBe(1)
   })
 
@@ -203,14 +203,14 @@ describe('amount habit results', () => {
     expect(await database.habitEntries.get(['english', today])).toEqual(original)
     await service.setBooleanHabitStatus('english', today, 'failure')
     expect((await service.getTodayHabits(today)).find((row) => row.habit.id === 'english')?.status).toBe('failure')
-    expect((await service.getTodayHabits(today))).toHaveLength(8)
+    expect((await service.getTodayHabits(today))).toHaveLength(16)
     expect((await service.getTodayAmountHabits(today))[0]?.value).toBe(2400)
   })
 
   it('hides archived amounts, rejects additions and retains history', async () => {
     await service.addHabitAmount('water', today, 200)
     await database.habits.update('water', { archivedAt: originalTimestamp })
-    expect(await service.getTodayAmountHabits(today)).toEqual([])
+    expect((await service.getTodayAmountHabits(today)).map((row) => row.habit.id)).toEqual(['push-ups', 'abs', 'squats', 'pull-ups'])
     await expect(service.addHabitAmount('water', today, 400)).rejects.toThrow('в архиве')
     expect(await database.habitEntries.get(['water', today])).toMatchObject({ value: 200 })
   })

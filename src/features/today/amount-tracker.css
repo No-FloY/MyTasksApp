@@ -9,6 +9,7 @@
 .amount-total { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin: 20px 0 13px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .amount-total strong { min-width: 0; font-size: 29px; line-height: 1.3; letter-spacing: -.7px; font-weight: 550; color: #355847; }
 .amount-total span { font-size: 14px; line-height: 1.5; color: #74816b; }
+.amount-total .amount-percent { margin-left: auto; color: #49694e; font-size: 13px; font-weight: 600; }
 .amount-progress { width: 100%; height: 8px; background: #eef2ea; border-radius: 6px; overflow: hidden; }
 .amount-progress-fill { height: 100%; background: #7ea995; border-radius: inherit; transition: width .2s ease; }
 .amount-progress.is-complete .amount-progress-fill { background: #557e62; }
@@ -16,6 +17,7 @@
 .amount-status.is-complete { color: #54764d; }
 .amount-status svg { flex-shrink: 0; }
 .amount-quick-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.amount-quick-actions:has(> :only-child) { grid-template-columns: minmax(0, 1fr); }
 .amount-quick-button { min-width: 0; min-height: 46px; padding: 0 10px; border: 1px solid #dce8dc; background: #f0f5ed; color: #49694e; font-size: 14px; font-weight: 550; }
 .amount-form { margin-top: 17px; }
 .amount-form label { display: block; margin-bottom: 7px; color: #5f7057; font-size: 12px; line-height: 1.5; font-weight: 500; }
@@ -30,6 +32,23 @@
 .amount-error { margin: 10px 0 0; color: #a55449; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .amount-save-note { display: flex; align-items: center; gap: 7px; min-height: 18px; margin: 14px 0 0; color: #74826a; font-size: 11px; line-height: 1.5; }
 .amount-save-note svg { flex-shrink: 0; }
+.amount-form-total .amount-input-row { grid-template-columns: minmax(0, 1fr); }
+.amount-form-total .amount-submit { width: 100%; }
+.amount-manual { margin-top: 8px; }
+.amount-manual summary { display: list-item; width: fit-content; max-width: 100%; min-height: 44px; padding: 12px 0; color: #56704e; font-size: 12px; line-height: 20px; cursor: pointer; overflow-wrap: anywhere; }
+.amount-manual summary:focus-visible { outline: 3px solid #739379; outline-offset: 2px; border-radius: 3px; }
+.amount-manual .amount-form { margin-top: 2px; }
+.amount-tracker-compact .amount-tracker-card { gap: 12px; padding: 16px; }
+.amount-tracker-compact .amount-heading p { display: none; }
+.amount-tracker-compact .amount-icon { width: 32px; height: 32px; border-radius: 8px; }
+.amount-tracker-compact .amount-total { margin: 10px 0; }
+.amount-tracker-compact .amount-total strong { font-size: 25px; }
+.amount-tracker-compact .amount-controls { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; padding-left: 0; border-left: 0; }
+.amount-tracker-compact .amount-manual { margin-top: 0; min-width: 0; }
+.amount-tracker-compact .amount-manual summary { width: 100%; min-height: 46px; padding: 12px 7px; border: 1px solid #dce8dc; border-radius: 7px; font-size: 11px; }
+.amount-tracker-compact .amount-manual[open] { grid-column: 1 / -1; grid-row: 2; }
+.amount-tracker-compact .amount-manual[open] summary { margin-bottom: 10px; }
+.amount-tracker-compact :is(.amount-save-note, .amount-error) { grid-column: 1 / -1; margin-top: 3px; }
 
 @media (min-width: 600px) {
   .amount-tracker-card { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 28px; padding: 24px 23px; }

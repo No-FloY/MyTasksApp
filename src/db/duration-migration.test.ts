@@ -78,8 +78,8 @@ describe('duration configuration migration from IndexedDB v1 to v2', () => {
     const originalWater = await legacy.habits.get('water')
     const current = await upgrade(legacy)
 
-    expect(current.verno).toBe(4)
-    expect(await current.habits.count()).toBe(11)
+    expect(current.verno).toBe(6)
+    expect(await current.habits.count()).toBe(23)
     expect(await current.habitEntries.count()).toBe(entries.length)
     expect(await current.habits.get('gaming')).toEqual({
       ...originalGaming, ratingRanges: getInitialDurationRanges('gaming'),
@@ -107,7 +107,7 @@ describe('duration configuration migration from IndexedDB v1 to v2', () => {
     await legacy.habitEntries.put(historicalEntry)
     const current = await upgrade(legacy)
 
-    expect(await current.habits.count()).toBe(9)
+    expect(await current.habits.count()).toBe(21)
     expect(await current.habits.get('social-media')).toBeUndefined()
     expect(await current.habits.get('reading')).toBeUndefined()
     expect(await current.habits.get('gaming')).toMatchObject({
@@ -145,7 +145,7 @@ describe('duration configuration migration from IndexedDB v1 to v2', () => {
     const gaming = await legacy.habits.get('gaming')
     if (!gaming) throw new Error('Missing legacy habit')
     await legacy.habits.put({
-      id: gaming.id, name: 'Моя отметка', description: gaming.description, order: gaming.order,
+      id: gaming.id, category: gaming.category, name: 'Моя отметка', description: gaming.description, order: gaming.order,
       createdAt: gaming.createdAt, updatedAt: gaming.updatedAt, archivedAt: null, type: 'boolean',
     })
     const before = await legacy.habits.get('gaming')

@@ -3,6 +3,7 @@ import { assertEditableDate, isLocalDate, type LocalDate } from '../lib/local-da
 import type { Habit } from '../models/habit'
 import type { HabitEntry } from '../models/habit-entry'
 import { validateDuration } from './duration-service'
+import { getHabitEntryDate, getWeekStart } from './habit-schedule'
 
 export const MAX_HABIT_NOTE_LENGTH = 2000
 
@@ -44,10 +45,10 @@ export class HabitNoteService {
     if (!isLocalDate(date)) throw new Error('Некорректная календарная дата.')
     return this.database.transaction('r', this.database.habits, this.database.habitEntries, async () => {
       const habits = await this.database.habits.orderBy('order').toArray()
-      const entries = new Map((await this.database.habitEntries.where('date').equals(date).toArray())
-        .map((entry) => [entry.habitId, entry]))
+      const entries = new Map((await this.database.habitEntries.where('date').between(getWeekStart(date), date, true, true).toArray())
+        .map((entry) => [`${entry.habitId}:${entry.date}`, entry]))
       return habits.filter((habit) => includeArchived || habit.archivedAt === null).flatMap((habit) => {
-        const entry = entries.get(habit.id)
+        const entry = entries.get(`${habit.id}:${getHabitEntryDate(habit, date)}`)
         if (!entry) return []
         validateEntry(habit, entry)
         return [{ habit, entry }]
@@ -67,7 +68,7 @@ export class HabitNoteService {
       const habit = await this.database.habits.get(habitId)
       if (!habit) throw new Error('Привычка не найдена.')
       if (habit.archivedAt !== null) throw new Error('Привычка находится в архиве.')
-      const previous = await this.database.habitEntries.get([habitId, date])
+      const previous = await this.database.habitEntries.get([habitId, getHabitEntryDate(habit, date)])
       if (!previous) throw new Error('Сначала сохраните результат привычки за выбранный день.')
       validateEntry(habit, previous)
       const entry: HabitEntry = { ...previous, updatedAt: new Date().toISOString() }

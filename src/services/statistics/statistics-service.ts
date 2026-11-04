@@ -9,7 +9,12 @@ import { calculateAmountStatistics } from './amount-statistics'
 import { calculateDurationStatistics } from './duration-statistics'
 import { calculateTaskStatistics } from './task-statistics'
 import { calculateGoalStatistics } from './goal-statistics'
-import { getTimestampLocalDate, getWeekPeriods, type StatisticsPeriod } from './period-utils'
+import { getStatisticsPeriod, getWeekPeriods, type StatisticsPeriod } from './period-utils'
+import { calculateDayScore, calculateWeeklyScore } from './day-score'
+import { readFirstRecordedDates } from './day-score-service'
+import { getWeekStart, isWeeklyHabit } from '../habit-schedule'
+import { calculateWeeklyHabitStatistics } from './weekly-habit-statistics'
+import { calculateFoodStatistics } from './food-statistics'
 
 export interface StatisticsSource {
   habits: Habit[]
@@ -25,13 +30,13 @@ function calculateHabits(
   habits: Habit[], entriesByHabit: ReadonlyMap<string, HabitEntry[]>, period: StatisticsPeriod,
   firstRecordedDates?: ReadonlyMap<string, LocalDate>,
 ) {
-  const booleans = habits.flatMap((habit) => habit.type === 'boolean'
+  const booleans = habits.flatMap((habit) => habit.type === 'boolean' && !isWeeklyHabit(habit)
     ? [calculateBooleanStatistics(habit, entriesByHabit.get(habit.id) ?? [], period, firstRecordedDates?.get(habit.id))]
     : []).filter((item) => item.eligibleDays > 0)
-  const amounts = habits.flatMap((habit) => habit.type === 'amount'
+  const amounts = habits.flatMap((habit) => habit.type === 'amount' && !isWeeklyHabit(habit)
     ? [calculateAmountStatistics(habit, entriesByHabit.get(habit.id) ?? [], period, firstRecordedDates?.get(habit.id))]
     : []).filter((item) => item.eligibleDays > 0)
-  const durations = habits.flatMap((habit) => habit.type === 'duration'
+  const durations = habits.flatMap((habit) => habit.type === 'duration' && !isWeeklyHabit(habit)
     ? [calculateDurationStatistics(habit, entriesByHabit.get(habit.id) ?? [], period, firstRecordedDates?.get(habit.id))]
     : []).filter((item) => item.eligibleDays > 0)
   const successCount = booleans.reduce((sum, item) => sum + item.successCount, 0)
@@ -50,6 +55,10 @@ export function calculateStatistics(source: StatisticsSource, period: Statistics
     entriesByHabit.set(entry.habitId, entries)
   }
   const habitStatistics = calculateHabits(habits, entriesByHabit, period, source.firstRecordedDates)
+  const weeklyHabits = habits.filter((habit) => habit.type === 'boolean' && isWeeklyHabit(habit))
+    .map((habit) => calculateWeeklyHabitStatistics(habit, entriesByHabit.get(habit.id) ?? [], period, source.firstRecordedDates?.get(habit.id)))
+    .filter((item) => item.eligibleWeeks > 0)
+  const food = calculateFoodStatistics(habits, source.entries, period, source.firstRecordedDates)
   const tasks = calculateTaskStatistics(source.tasks, period.startDate, period.endDate, now)
   const goals = calculateGoalStatistics(source.goals, source.milestones, period.today)
   const weekly = period.dates.length < 15 ? [] : getWeekPeriods(period).map((week) => {
@@ -64,8 +73,11 @@ export function calculateStatistics(source: StatisticsSource, period: Statistics
       socialAverage: results.durations.find((item) => item.habit.id === 'social-media')?.averageMinutes ?? null,
     }
   })
-  return { period, ...habitStatistics, tasks, goals, weekly,
+  const dayScore = calculateDayScore(habits, source.entries, period.endDate, source.firstRecordedDates)
+  const weeklyScore = calculateWeeklyScore(habits, source.entries, period.endDate, source.firstRecordedDates, period.today)
+  return { period, ...habitStatistics, tasks, goals, weekly, dayScore, weeklyScore, weeklyHabits, food,
     hasPeriodData: habitStatistics.markedCount > 0
+      || weeklyHabits.some((item) => item.weeks.some((week) => week.entry !== undefined && week.status !== 'no-data'))
       || habitStatistics.amounts.some((item) => item.daysWithData > 0)
       || habitStatistics.durations.some((item) => item.recordedDays > 0) || tasks.tasksDue > 0 }
 }
@@ -77,26 +89,18 @@ export class StatisticsService {
 
   async getStatistics(period: StatisticsPeriod, now: Date): Promise<StatisticsDashboard> {
     const database = this.database
+    const readStart = getWeekStart(period.startDate)
+    const monthStart = getStatisticsPeriod('month', period.today).startDate
+    const earliestRead = readStart < monthStart ? readStart : monthStart
     return database.transaction('r', [database.habits, database.habitEntries, database.tasks, database.goals, database.goalMilestones], async () => {
       const [habits, entries, tasks, goals, milestones] = await Promise.all([
         database.habits.toArray(),
-        database.habitEntries.where('date').between(period.startDate, period.endDate, true, true).toArray(),
+        database.habitEntries.where('date').inAnyRange([[readStart, period.endDate], [monthStart, period.today]],
+          { includeLowers: true, includeUppers: true }).toArray(),
         database.tasks.where('date').between(period.startDate, period.endDate, true, true).toArray(),
         database.goals.toArray(), database.goalMilestones.toArray(),
       ])
-      // A backdated result can establish an earlier start than createdAt. Read
-      // only those historical keys which can affect lifecycle counts, in one
-      // compound-index query, rather than fetching every habit's full history.
-      const historyRanges = habits
-        .filter((habit) => getTimestampLocalDate(habit.createdAt) > period.startDate)
-        .map((habit) => [[habit.id, '0000-01-01'], [habit.id, period.startDate]] as const)
-      const historicalKeys = historyRanges.length === 0 ? [] : await database.habitEntries
-        .where('[habitId+date]').inAnyRange(historyRanges, { includeLowers: true, includeUppers: false }).primaryKeys()
-      const firstRecordedDates = new Map<string, LocalDate>()
-      for (const [habitId, date] of historicalKeys) {
-        const firstDate = firstRecordedDates.get(habitId)
-        if (firstDate === undefined || date < firstDate) firstRecordedDates.set(habitId, date)
-      }
+      const firstRecordedDates = await readFirstRecordedDates(database, habits, earliestRead)
       return calculateStatistics({ habits, entries, tasks, goals, milestones, firstRecordedDates }, period, now)
     })
   }

@@ -3,6 +3,7 @@ import { LoaderCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useDialog } from '@/components/ui/use-dialog'
 import type { Habit } from '@/models/habit'
+import { HABIT_CATEGORIES, getHabitCategory, isHabitCategory } from '@/models/habit-category'
 import type { DurationRatingRange } from '@/models/duration-rating'
 import { validateRatingRanges } from '@/services/duration-service'
 import {
@@ -28,7 +29,7 @@ interface RangeDraft {
   maxMinutes: string | null
 }
 
-type FieldErrors = Partial<Record<'name' | 'description' | 'target' | 'ranges', string>>
+type FieldErrors = Partial<Record<'name' | 'description' | 'category' | 'target' | 'ranges', string>>
 
 export function HabitSettingsDialog({ habit, onClose, onSaved, fallbackFocus }: HabitSettingsDialogProps) {
   const id = useId()
@@ -37,6 +38,7 @@ export function HabitSettingsDialog({ habit, onClose, onSaved, fallbackFocus }: 
   const savingRef = useRef(false)
   const [name, setName] = useState(habit.name)
   const [description, setDescription] = useState(habit.description)
+  const [category, setCategory] = useState(getHabitCategory(habit))
   const [target, setTarget] = useState(habit.type === 'amount' ? String(habit.target) : '')
   const [ranges, setRanges] = useState<RangeDraft[]>(habit.type === 'duration'
     ? habit.ratingRanges.map((range) => ({
@@ -83,6 +85,7 @@ export function HabitSettingsDialog({ habit, onClose, onSaved, fallbackFocus }: 
     const validation: FieldErrors = {}
     if (!name.trim() || name.trim().length > MAX_HABIT_NAME_LENGTH) validation.name = `Введите название до ${MAX_HABIT_NAME_LENGTH} символов.`
     if (description.length > MAX_HABIT_DESCRIPTION_LENGTH) validation.description = `Описание должно быть не длиннее ${MAX_HABIT_DESCRIPTION_LENGTH} символов.`
+    if (!isHabitCategory(category)) validation.category = 'Выберите категорию привычки.'
     if (habit.type === 'amount' && (!/^\d+$/.test(target.trim()) || !Number.isSafeInteger(Number(target)) || Number(target) <= 0)) {
       validation.target = 'Введите положительное целое число.'
     }
@@ -127,7 +130,7 @@ export function HabitSettingsDialog({ habit, onClose, onSaved, fallbackFocus }: 
     setSaving(true)
     setSaveError('')
     try {
-      const base = { name, description }
+      const base = { name, description, category }
       if (habit.type === 'amount') await updateHabitSettings(habit.id, { ...base, type: habit.type, target: Number(target) })
       else if (habit.type === 'duration') await updateHabitSettings(habit.id, { ...base, type: habit.type, ratingRanges })
       else await updateHabitSettings(habit.id, { ...base, type: habit.type })
@@ -157,6 +160,17 @@ export function HabitSettingsDialog({ habit, onClose, onSaved, fallbackFocus }: 
             <label htmlFor={`${id}-description`}>Описание <span>необязательно</span></label>
             <textarea {...fieldProps('description')} value={description} rows={3} maxLength={MAX_HABIT_DESCRIPTION_LENGTH} disabled={saving} onChange={(event) => { setDescription(event.target.value); clearError('description') }} />
             {fieldError('description')}
+          </div>
+          <div className="task-field">
+            <label htmlFor={`${id}-category`}>Категория привычки</label>
+            <select {...fieldProps('category')} value={category} required disabled={saving} aria-describedby={`${id}-category-help${errors.category ? ` ${id}-category-error` : ''}`} onChange={(event) => {
+              if (isHabitCategory(event.target.value)) setCategory(event.target.value)
+              clearError('category')
+            }}>
+              {HABIT_CATEGORIES.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+            </select>
+            {fieldError('category')}
+            <p className="settings-notice" id={`${id}-category-help`}>Категория применяется ко всей истории. Категории имеют равный вес в оценке дня, поэтому оценки прошлых дней могут измениться. Записанные результаты сохраняются.</p>
           </div>
           {habit.type === 'amount' && <>
             <div className="task-field">

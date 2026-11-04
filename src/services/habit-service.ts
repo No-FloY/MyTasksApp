@@ -2,6 +2,7 @@ import { db, type TaskTrackerDatabase } from '../db/database'
 import { assertEditableDate, isLocalDate, type LocalDate } from '../lib/local-date'
 import type { AmountHabit, BooleanHabit } from '../models/habit'
 import type { BooleanHabitEntry, BooleanHabitStatus, HabitEntry } from '../models/habit-entry'
+import { getHabitEntryDate, getWeekStart, isHabitExpectedOnDate, isWeeklyHabit } from './habit-schedule'
 
 export interface BooleanHabitWithStatus {
   habit: BooleanHabit
@@ -106,17 +107,18 @@ export class HabitService {
       this.database.habitEntries,
       async () => {
         const habits = await this.database.habits.where('type').equals('boolean').toArray()
-        const entries = await this.database.habitEntries.where('date').equals(date).toArray()
+        const entries = await this.database.habitEntries.where('date').between(getWeekStart(date), date, true, true).toArray()
         const statuses = new Map(
           entries
             .filter((entry): entry is BooleanHabitEntry => entry.type === 'boolean')
-            .map((entry) => [entry.habitId, entry.status]),
+            .map((entry) => [`${entry.habitId}:${entry.date}`, entry.status]),
         )
 
         return habits
           .filter((habit): habit is BooleanHabit => habit.type === 'boolean' && habit.archivedAt === null)
+          .filter((habit) => isWeeklyHabit(habit) || isHabitExpectedOnDate(habit, date))
           .sort((first, second) => first.order - second.order)
-          .map((habit) => ({ habit, status: statuses.get(habit.id) ?? 'no-data' }))
+          .map((habit) => ({ habit, status: statuses.get(`${habit.id}:${getHabitEntryDate(habit, date)}`) ?? 'no-data' }))
       },
     )
   }
@@ -131,14 +133,15 @@ export class HabitService {
       async () => {
         const habits = await this.database.habits.where('type').equals('amount').toArray()
         const entries = new Map(
-          (await this.database.habitEntries.where('date').equals(date).toArray())
-            .map((entry) => [entry.habitId, entry]),
+          (await this.database.habitEntries.where('date').between(getWeekStart(date), date, true, true).toArray())
+            .map((entry) => [`${entry.habitId}:${entry.date}`, entry]),
         )
 
         return habits
           .filter((habit): habit is AmountHabit => habit.type === 'amount' && habit.archivedAt === null)
+          .filter((habit) => isWeeklyHabit(habit) || isHabitExpectedOnDate(habit, date))
           .sort((first, second) => first.order - second.order)
-          .map((habit) => getAmountHabitProgress(habit, entries.get(habit.id)))
+          .map((habit) => getAmountHabitProgress(habit, entries.get(`${habit.id}:${getHabitEntryDate(habit, date)}`)))
       },
     )
   }
@@ -159,7 +162,8 @@ export class HabitService {
         if (habit.archivedAt !== null) throw new Error('Привычка находится в архиве.')
         validateAmountTarget(habit.target)
 
-        const previous = await this.database.habitEntries.get([habitId, date])
+        const entryDate = getHabitEntryDate(habit, date)
+        const previous = await this.database.habitEntries.get([habitId, entryDate])
         const value = readAmountValue(previous) + delta
         if (!Number.isSafeInteger(value)) throw new Error('Итоговое количество слишком большое. Изменения не внесены.')
         const now = new Date().toISOString()
@@ -167,7 +171,7 @@ export class HabitService {
         await this.database.habitEntries.put({
           ...previous,
           habitId,
-          date,
+          date: entryDate,
           type: 'amount',
           value,
           createdAt: previous?.createdAt ?? now,
@@ -186,12 +190,13 @@ export class HabitService {
       if (habit.type !== 'amount') throw new Error('Эта привычка не поддерживает количественный ввод.')
       if (habit.archivedAt !== null) throw new Error('Привычка находится в архиве.')
       validateAmountTarget(habit.target)
-      const previous = await this.database.habitEntries.get([habitId, date])
+      const entryDate = getHabitEntryDate(habit, date)
+      const previous = await this.database.habitEntries.get([habitId, entryDate])
       readAmountValue(previous)
       const now = new Date().toISOString()
       await this.database.habitEntries.put({
         ...previous,
-        habitId, date, type: 'amount', value,
+        habitId, date: entryDate, type: 'amount', value,
         createdAt: previous?.createdAt ?? now, updatedAt: now,
       })
     })
@@ -215,14 +220,15 @@ export class HabitService {
         if (habit.type !== 'boolean') throw new Error('Эта привычка не поддерживает отметки да/нет.')
         if (habit.archivedAt !== null) throw new Error('Привычка находится в архиве.')
 
-        const previous = await this.database.habitEntries.get([habitId, date])
+        const entryDate = getHabitEntryDate(habit, date)
+        const previous = await this.database.habitEntries.get([habitId, entryDate])
         if (previous && previous.type !== 'boolean') throw new Error('Тип сохранённой записи не соответствует привычке.')
         const now = new Date().toISOString()
 
         await this.database.habitEntries.put({
           ...previous,
           habitId,
-          date,
+          date: entryDate,
           type: 'boolean',
           status,
           createdAt: previous?.createdAt ?? now,

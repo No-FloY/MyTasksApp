@@ -8,7 +8,7 @@ import { getStatisticsPeriod } from './period-utils'
 
 const timestamp = '2026-09-20T10:00:00.000Z'
 function habit(id = 'gaming'): DurationHabit {
-  return { id, name: id, type: 'duration', unit: 'minutes', ratingRanges: getInitialDurationRanges(id), description: '', order: 0, createdAt: timestamp, updatedAt: timestamp, archivedAt: null }
+  return { id, name: id, type: 'duration', category: 'screen_time', unit: 'minutes', ratingRanges: getInitialDurationRanges(id), description: '', order: 0, createdAt: timestamp, updatedAt: timestamp, archivedAt: null }
 }
 function date(value: string): LocalDate {
   if (!isLocalDate(value)) throw new Error('Invalid fixture date')

@@ -3,6 +3,7 @@ import type { Habit } from '../../models/habit'
 import type { HabitEntry } from '../../models/habit-entry'
 import { formatDuration } from '../../services/duration-service'
 import type { HabitEntryWithNote } from '../../services/habit-note-service'
+import { isWeeklyHabit } from '../../services/habit-schedule'
 
 const typeLabels: Record<Habit['type'], string> = {
   boolean: 'Отметки', amount: 'Количество', duration: 'Время', rating: 'Оценка',
@@ -34,7 +35,7 @@ export function ArchivedDayHistory({ rows }: { rows: HabitEntryWithNote[] }) {
         {archived.map(({ habit, entry }) => (
           <li key={habit.id} data-archived-habit-id={habit.id}>
             <h3>{habit.name}</h3>
-            <p className="archived-day-type">{typeLabels[habit.type]} · В архиве</p>
+            <p className="archived-day-type">{typeLabels[habit.type]} · {isWeeklyHabit(habit) ? 'За неделю · ' : ''}В архиве</p>
             <p className="archived-day-value">{formatEntry(habit, entry)}</p>
             {entry.note && <p className="archived-day-note">{entry.note}</p>}
           </li>

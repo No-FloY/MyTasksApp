@@ -4,8 +4,9 @@ import type { Habit } from '../models/habit'
 import type { HabitEntry } from '../models/habit-entry'
 import type { Task } from '../models/task'
 import type { Goal, GoalMilestone } from '../models/goal'
-import { createInitialHabits } from './seed'
+import { createInitialHabits, createStageTenAdditionalHabits } from './seed'
 import { getInitialDurationRanges } from './duration-defaults'
+import { backfillHabitDefinitions, type LegacyHabit } from './habit-backfill'
 
 export class TaskTrackerDatabase extends Dexie {
   habits!: Table<Habit, string>
@@ -49,6 +50,33 @@ export class TaskTrackerDatabase extends Dexie {
       tasks: 'id, date, status, goalId',
       goals: 'id, status, deadline',
       goalMilestones: 'id, goalId, [goalId+order]',
+    })
+
+    // Metadata backfill shares the upgrade transaction with the version change.
+    // History and every other table stay untouched; reopening never reseeds.
+    this.version(5).stores({
+      habits: 'id, type, order',
+      habitEntries: '[habitId+date], habitId, date, type',
+      tasks: 'id, date, status, goalId',
+      goals: 'id, status, deadline',
+      goalMilestones: 'id, goalId, [goalId+order]',
+    }).upgrade(async (transaction) => {
+      const habits = transaction.table<LegacyHabit>('habits')
+      await habits.bulkPut(backfillHabitDefinitions(await habits.toArray(), new Date().toISOString()))
+    })
+
+    // Upgrade already released or locally tested v5 databases without rewriting rows.
+    this.version(6).stores({
+      habits: 'id, type, order',
+      habitEntries: '[habitId+date], habitId, date, type',
+      tasks: 'id, date, status, goalId',
+      goals: 'id, status, deadline',
+      goalMilestones: 'id, goalId, [goalId+order]',
+    }).upgrade(async (transaction) => {
+      const habits = transaction.table<Habit>('habits')
+      const ids = new Set(await habits.toCollection().primaryKeys())
+      const missing = createStageTenAdditionalHabits(new Date().toISOString()).filter((habit) => !ids.has(habit.id))
+      if (missing.length > 0) await habits.bulkAdd(missing)
     })
 
     // populate runs once, in the creation transaction. Reopening never resets data.

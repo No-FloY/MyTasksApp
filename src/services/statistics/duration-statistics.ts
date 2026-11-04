@@ -3,6 +3,7 @@ import type { LocalDate } from '../../lib/local-date'
 import type { HabitEntry } from '../../models/habit-entry'
 import { getDurationRating, readDurationMinutes, validateRatingRanges } from '../duration-service'
 import type { DurationDay, DurationWeek } from '../duration-statistics-service'
+import { isHabitExpectedOnDate } from '../habit-schedule'
 import { getHabitPeriodDates, type StatisticsPeriod } from './period-utils'
 
 export interface DurationStatistics extends DurationWeek {
@@ -21,7 +22,8 @@ export function calculateDurationStatistics(
 ): DurationStatistics {
   validateRatingRanges(habit.ratingRanges)
   const byDate = new Map(entries.filter((entry) => entry.habitId === habit.id).map((entry) => [entry.date, entry]))
-  const eligibleDays = getHabitPeriodDates(habit, entries, period, firstRecordedDate).length
+  const eligibleDays = getHabitPeriodDates(habit, entries, period, firstRecordedDate)
+    .filter((date) => isHabitExpectedOnDate(habit, date) || byDate.has(date)).length
   const days = period.dates.map((date): DurationDay => {
     const minutes = readDurationMinutes(byDate.get(date))
     return { date, minutes, rating: minutes === null ? null : getDurationRating(minutes, habit.ratingRanges) }

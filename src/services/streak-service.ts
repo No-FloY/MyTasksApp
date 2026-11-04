@@ -3,6 +3,7 @@ import { db, type TaskTrackerDatabase } from '../db/database'
 import { getLocalDate, isLocalDate, type LocalDate } from '../lib/local-date'
 import type { BooleanHabit } from '../models/habit'
 import type { HabitEntry } from '../models/habit-entry'
+import { getHabitSchedule } from './habit-schedule'
 
 export interface BooleanStreak {
   currentStreak: number
@@ -66,6 +67,7 @@ export class StreakService {
     return this.database.transaction('r', this.database.habits, this.database.habitEntries, async () => {
       const habits = (await this.database.habits.where('type').equals('boolean').toArray())
         .filter((habit): habit is BooleanHabit => habit.type === 'boolean' && habit.archivedAt === null)
+        .filter((habit) => getHabitSchedule(habit).type === 'daily')
         .sort((a, b) => a.order - b.order)
       return Promise.all(habits.map(async (habit) => {
         const entries = await this.database.habitEntries.where('[habitId+date]')

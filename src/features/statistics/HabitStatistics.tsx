@@ -3,11 +3,12 @@ import type { StatisticsDashboard } from '@/services/statistics/statistics-servi
 import { formatRate } from './format-statistics'
 
 export function HabitStatistics({ data }: { data: StatisticsDashboard }) {
+  const habits = data.booleans.filter((item) => !['no-alcohol', 'breakfast', 'lunch', 'dinner'].includes(item.habit.id))
   return <section className="statistics-section" aria-labelledby="boolean-statistics-heading">
     <h2 id="boolean-statistics-heading">Привычки</h2>
     <p className="week-explanation">Доля успехов = успехи / (успехи + неудачи). «Нет данных» не считается неудачей. Серии ограничены выбранным периодом; текущая заканчивается его последним днём.</p>
-    {data.booleans.length === 0 && <p className="statistics-empty">В этом периоде ещё не было привычек.</p>}
-    <div className="boolean-statistics-grid">{data.booleans.map((item) => <Card key={item.habit.id} className="statistics-habit-card" data-boolean-statistics-id={item.habit.id}>
+    {habits.length === 0 && <p className="statistics-empty">В этом периоде ещё не было других ежедневных привычек.</p>}
+    <div className="boolean-statistics-grid">{habits.map((item) => <Card key={item.habit.id} className="statistics-habit-card" data-boolean-statistics-id={item.habit.id}>
       <div className="statistics-habit-title"><h3>{item.habit.name}</h3>{item.habit.archivedAt && <span className="statistics-badge">Архив</span>}</div>
       <strong className="statistics-habit-rate" data-statistic="success-rate">{formatRate(item.successRate)}</strong>
       {item.successRate !== null && <div className="statistics-meter" role="meter" aria-label={`Доля успехов: ${item.habit.name}`} aria-valuenow={item.successRate} aria-valuemin={0} aria-valuemax={100}><span style={{ width: `${item.successRate}%` }} /></div>}

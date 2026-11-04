@@ -34,7 +34,7 @@ function fullBackup(): BackupSnapshot {
     { id: 'short', label: 'Немного', emoji: '🙂', minMinutes: 0, maxMinutes: 90 },
     { id: 'long', label: 'Много', emoji: '🙁', minMinutes: 91, maxMinutes: null },
   ]
-  habits.push({ id: 'rating', type: 'rating', name: 'Моя оценка', description: '', order: 11, archivedAt: null, ...times })
+  habits.push({ id: 'rating', category: 'study_work', type: 'rating', name: 'Моя оценка', description: '', order: 18, archivedAt: null, ...times })
   const baseGoal: Goal = {
     id: 'goal', title: 'Найти работу', description: 'Первая строка\nВторая строка',
     deadline: getLocalDate(new Date(2026, 11, 31)), status: 'active', progressMode: 'auto',
@@ -87,6 +87,18 @@ function changeRow(table: keyof BackupData, index: number, field: string, value:
   }
 }
 
+function versionOneBackup() {
+  const snapshot = fullBackup()
+  const habits = snapshot.data.habits.filter((habit) => habit.order < 11 || habit.id === 'rating').map((habit) => {
+    const legacy: Record<string, unknown> = { ...habit }
+    delete legacy.category
+    delete legacy.quickActions
+    delete legacy.manualMode
+    return legacy
+  })
+  return { ...snapshot, formatVersion: 1, data: { ...snapshot.data, habits } }
+}
+
 describe('backup runtime validation', () => {
   it('parses all supported entities without changing fields, ranges, dates or optional values', () => {
     const fixture = fullBackup()
@@ -97,6 +109,99 @@ describe('backup runtime validation', () => {
     const backup = emptyBackup()
     const unordered = { data: { tasks: [], goals: [], habits: [], goalMilestones: [], habitEntries: [] }, exportedAt: backup.exportedAt, formatVersion: 1, app: 'zadachnik' }
     expect(parseBackupJson(JSON.stringify(unordered))).toStrictEqual(backup)
+  })
+
+  it('explicitly converts version 1 metadata while preserving all original fields and rows', () => {
+    const legacy = versionOneBackup()
+    const converted = parseBackupJson(JSON.stringify(legacy))
+    expect(converted.formatVersion).toBe(3)
+    expect(converted.exportedAt).toBe(legacy.exportedAt)
+    expect(converted.data.habits).toHaveLength(12)
+    expect(converted.data.habits.map((habit) => habit.id)).toEqual(legacy.data.habits.map((habit) => habit.id))
+    expect(converted.data).toMatchObject({ ...legacy.data, habits: legacy.data.habits })
+    expect(converted.data.habits.find((habit) => habit.id === 'water')).toMatchObject({
+      category: 'food_water', quickActions: [200, 400], manualMode: 'add', target: 2500, name: 'Моя вода',
+    })
+    expect(converted.data.habits.find((habit) => habit.id === 'rating')).toEqual({
+      ...legacy.data.habits.find((habit) => habit.id === 'rating'), category: 'self_development',
+    })
+    expect(parseBackupJson(JSON.stringify(converted))).toStrictEqual(converted)
+  })
+
+  it('keeps custom amount ids and their old manual-add behavior during version 1 conversion', () => {
+    const legacy = versionOneBackup()
+    const water = legacy.data.habits.find((habit) => habit.id === 'water')
+    if (!water) throw new Error('Invalid fixture')
+    legacy.data.habits = [{ ...water, id: 'custom-count', name: 'Свой счётчик', target: 53, unit: 'items' }]
+    legacy.data.habitEntries = []
+    expect(parseBackupJson(JSON.stringify(legacy)).data.habits).toEqual([{
+      ...legacy.data.habits[0], category: 'self_development', quickActions: [200, 400], manualMode: 'add',
+    }])
+  })
+
+  it('rejects new metadata inside a version 1 backup instead of silently dropping it', () => {
+    const legacy = versionOneBackup()
+    legacy.data.habits[0] = { ...legacy.data.habits[0], category: 'training' }
+    expect(() => parseBackupJson(JSON.stringify(legacy))).toThrow('неподдерживаемое поле')
+  })
+
+  it('round-trips custom amount controls, including no quick buttons, without changing saved totals', () => {
+    const fixture = fullBackup()
+    const water = fixture.data.habits.find((habit) => habit.id === 'water')
+    if (!water || water.type !== 'amount') throw new Error('Invalid fixture')
+    water.category = 'study_work'
+    water.manualMode = 'total'
+    water.quickActions = []
+    expect(parseBackupJson(JSON.stringify(fixture))).toStrictEqual(fixture)
+  })
+
+  it('round-trips weekly and selected-day schedules with their canonical entries', () => {
+    const fixture = fullBackup()
+    fixture.data.habits[0]!.schedule = { type: 'weekdays', days: [1, 3, 5] }
+    fixture.data.habits[1]!.schedule = { type: 'weekly', weekday: 7 }
+    fixture.data.habits[2]!.schedule = { type: 'daily' }
+    fixture.data.habitEntries[1]!.date = getLocalDate(new Date(2026, 9, 12))
+    fixture.data.habitEntries.push({ habitId: 'cleaning', date: day, type: 'boolean', status: 'success', ...times })
+    const converted = parseBackupJson(JSON.stringify(fixture))
+    expect(converted).toStrictEqual(fixture)
+    expect(converted.data.habits.find((habit) => habit.id === 'cleaning')?.schedule).toEqual({ type: 'weekly' })
+    expect(converted.data.habits[0]!.schedule).not.toBe(fixture.data.habits[0]!.schedule)
+  })
+
+  it('rejects a weekly result under a daily key instead of importing an invisible or duplicate weekly occurrence', () => {
+    const fixture = fullBackup()
+    fixture.data.habitEntries.push({ habitId: 'cleaning', date: previousDay, type: 'boolean', status: 'success', ...times })
+    const original = structuredClone(fixture)
+    expect(() => parseBackupJson(JSON.stringify(fixture))).toThrow('дату понедельника')
+    expect(fixture).toStrictEqual(original)
+    fixture.data.habitEntries.push({ habitId: 'cleaning', date: getLocalDate(new Date(2026, 9, 12)), type: 'boolean', status: 'failure', ...times })
+    expect(() => parseBackupJson(JSON.stringify(fixture))).toThrow('дату понедельника')
+  })
+
+  it('imports v2 daily definitions without adding supplementary habits or interpreting their IDs as schedules', () => {
+    const fixture = fullBackup()
+    const habits = fixture.data.habits.filter((habit) => habit.order < 18)
+    const converted = parseBackupJson(JSON.stringify({ ...fixture, formatVersion: 2, data: { ...fixture.data, habits, habitEntries: [] } }))
+    expect(converted.data.habits).toStrictEqual(habits)
+    expect(converted.data.habits).toHaveLength(18)
+    expect(converted.data.habits.every((habit) => habit.schedule === undefined)).toBe(true)
+    expect(converted.formatVersion).toBe(3)
+  })
+
+  it.each([
+    null, [], 'weekly', {}, { type: 'unknown' }, { type: 'daily', weekday: 1 },
+    { type: 'weekly', weekday: 0 }, { type: 'weekly', weekday: 8 }, { type: 'weekly', weekday: 2.5 },
+    { type: 'weekly', weekday: '1' }, { type: 'weekly', days: [1] },
+    { type: 'weekdays' }, { type: 'weekdays', days: [] }, { type: 'weekdays', days: [1, 1] },
+    { type: 'weekdays', days: [0, 7] }, { type: 'weekdays', days: [1, 8] }, { type: 'weekdays', days: [1.5] },
+    { type: 'weekdays', days: [1], weekday: 1 },
+  ])('rejects invalid schedule %j before writing', (schedule) => {
+    expect(() => parseBackupJson(JSON.stringify(changeRow('habits', 0, 'schedule', schedule)))).toThrow('schedule')
+  })
+
+  it('rejects schedule metadata in old formats rather than dropping it', () => {
+    const fixture = fullBackup()
+    expect(() => parseBackupJson(JSON.stringify({ ...fixture, formatVersion: 2 }))).toThrow('schedule')
   })
 
   it.each(['', '{', 'not json', '{"app":'])('rejects invalid JSON %j', (value) => {
@@ -119,7 +224,7 @@ describe('backup runtime validation', () => {
   })
 
   it('explains newer backup versions without attempting to guess their structure', () => {
-    expect(() => parseBackupJson(JSON.stringify({ app: 'zadachnik', formatVersion: 2, exportedAt: updatedAt, data: {} })))
+    expect(() => parseBackupJson(JSON.stringify({ app: 'zadachnik', formatVersion: 4, exportedAt: updatedAt, data: {} })))
       .toThrow('создана более новой версией приложения')
   })
 
@@ -134,7 +239,12 @@ describe('backup runtime validation', () => {
     ['habits', 0, 'type', 'unknown'], ['habits', 0, 'order', -1], ['habits', 0, 'order', 0.5],
     ['habits', 0, 'createdAt', undefined], ['habits', 0, 'updatedAt', '2026-10-19'],
     ['habits', 0, 'archivedAt', false], ['habits', 0, 'target', 2000],
+    ['habits', 0, 'category', undefined], ['habits', 0, 'category', 'Еда и вода'], ['habits', 0, 'category', 'unknown'],
+    ['habits', 0, 'manualMode', 'total'], ['habits', 0, 'quickActions', [10]],
     ['habits', 8, 'target', 0], ['habits', 8, 'target', -1], ['habits', 8, 'target', 1.5], ['habits', 8, 'target', Number.MAX_SAFE_INTEGER + 1],
+    ['habits', 8, 'quickActions', undefined], ['habits', 8, 'quickActions', 200], ['habits', 8, 'quickActions', [0]],
+    ['habits', 8, 'quickActions', [-1]], ['habits', 8, 'quickActions', [0.5]], ['habits', 8, 'quickActions', [200, 200]],
+    ['habits', 8, 'quickActions', [Number.MAX_SAFE_INTEGER + 1]], ['habits', 8, 'manualMode', undefined], ['habits', 8, 'manualMode', 'replace'],
     ['habits', 8, 'unit', ''], ['habits', 9, 'unit', 'hours'],
     ['habitEntries', 0, 'habitId', 'missing'], ['habitEntries', 0, 'date', '2026-02-30'],
     ['habitEntries', 0, 'date', '2026-10-19T00:00:00.000Z'], ['habitEntries', 0, 'status', 'maybe'],
@@ -248,12 +358,12 @@ describe('backup export and atomic replacement', () => {
   it('exports a new seeded database with every table, ISO metadata and a separate format version', async () => {
     const snapshot = await service.exportBackup()
     expect(snapshot).toMatchObject({
-      app: 'zadachnik', formatVersion: 1, exportedAt: '2026-10-19T21:30:00.000Z',
+      app: 'zadachnik', formatVersion: 3, exportedAt: '2026-10-19T21:30:00.000Z',
       data: { habitEntries: [], tasks: [], goals: [], goalMilestones: [] },
     })
-    expect(snapshot.data.habits).toHaveLength(11)
+    expect(snapshot.data.habits).toHaveLength(23)
     expect(snapshot.data).toStrictEqual(await readData())
-    expect(database.verno).toBe(4)
+    expect(database.verno).toBe(6)
   })
 
   it('exports a genuinely empty database without adding seed data', async () => {
@@ -312,6 +422,34 @@ describe('backup export and atomic replacement', () => {
   it('replaces a populated database with an empty snapshot and does not reseed after reopen', async () => {
     await fillDatabase()
     await service.importBackup(emptyBackup())
+    database.close()
+    await database.open()
+    expect(await readData()).toStrictEqual(emptyBackup().data)
+  })
+
+  it('replaces from version 1 without adding missing old habits or the new definitions after reopening', async () => {
+    const legacy = versionOneBackup()
+    legacy.data.habits = legacy.data.habits.filter((habit) => habit.id !== 'no-chips')
+    const converted = parseBackupJson(JSON.stringify(legacy))
+    await service.importBackup(legacy)
+    const sortByKey = (data: BackupData) => ({
+      habits: [...data.habits].sort((a, b) => a.id.localeCompare(b.id)),
+      habitEntries: [...data.habitEntries].sort((a, b) => a.habitId.localeCompare(b.habitId) || a.date.localeCompare(b.date)),
+      tasks: [...data.tasks].sort((a, b) => a.id.localeCompare(b.id)),
+      goals: [...data.goals].sort((a, b) => a.id.localeCompare(b.id)),
+      goalMilestones: [...data.goalMilestones].sort((a, b) => a.id.localeCompare(b.id)),
+    })
+    expect(sortByKey((await service.exportBackup()).data)).toStrictEqual(sortByKey(converted.data))
+    database.close()
+    await database.open()
+    expect(await database.habits.count()).toBe(11)
+    expect(await database.habits.get('no-chips')).toBeUndefined()
+    expect(await database.habits.get('push-ups')).toBeUndefined()
+    expect(sortByKey((await service.exportBackup()).data)).toStrictEqual(sortByKey(converted.data))
+  })
+
+  it('imports an empty version 1 backup as an empty database across reopen', async () => {
+    await service.importBackup({ ...emptyBackup(), formatVersion: 1 })
     database.close()
     await database.open()
     expect(await readData()).toStrictEqual(emptyBackup().data)

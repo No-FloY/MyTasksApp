@@ -6,7 +6,7 @@ import { calculateAmountStatistics } from './amount-statistics'
 import { getStatisticsPeriod } from './period-utils'
 
 const timestamp = '2026-09-20T10:00:00.000Z'
-const habit: AmountHabit = { id: 'water', name: 'Вода', type: 'amount', unit: 'мл', target: 2000, description: '', order: 0, createdAt: timestamp, updatedAt: timestamp, archivedAt: null }
+const habit: AmountHabit = { id: 'water', name: 'Вода', type: 'amount', category: 'food_water', unit: 'мл', target: 2000, quickActions: [200, 400], manualMode: 'add', description: '', order: 0, createdAt: timestamp, updatedAt: timestamp, archivedAt: null }
 function date(value: string): LocalDate {
   if (!isLocalDate(value)) throw new Error('Invalid fixture date')
   return value
@@ -20,7 +20,7 @@ describe('amount statistics', () => {
   it('keeps actual over-target values and calculates average/min/max/total only from recorded days', () => {
     const entries = [entry('2026-10-10', 0), entry('2026-10-11', 1800), entry('2026-10-12', 2000), entry('2026-10-16', 4200)]
     expect(calculateAmountStatistics(habit, entries, period)).toMatchObject({
-      total: 8000, average: 2000, minimum: 0, maximum: 4200, daysWithData: 4,
+      total: 8000, average: 2000, averagePerDay: 8000 / 7, minimum: 0, maximum: 4200, daysWithData: 4,
       noDataCount: 3, successfulDays: 2, failedDays: 2, successRate: 50,
     })
     expect(calculateAmountStatistics(habit, entries, period).days.map((day) => day.value)).toEqual([0, 1800, 2000, null, null, null, 4200])
@@ -28,7 +28,7 @@ describe('amount statistics', () => {
 
   it('has null measures and no failures for a wholly empty period', () => {
     expect(calculateAmountStatistics(habit, [], period)).toMatchObject({
-      total: null, average: null, minimum: null, maximum: null,
+      total: null, average: null, averagePerDay: null, minimum: null, maximum: null,
       daysWithData: 0, successfulDays: 0, failedDays: 0, successRate: null, noDataCount: 7,
     })
   })

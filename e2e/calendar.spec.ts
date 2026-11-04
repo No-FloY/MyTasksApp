@@ -205,13 +205,19 @@ test('derives empty, partial and complete day summaries from real records and ke
   await expect(day(page, past)).toHaveAttribute('data-day-status', 'partial')
 
   const rows = page.locator('[data-habit-id]')
-  await expect(rows).toHaveCount(8)
+  await expect(rows).toHaveCount(16)
   for (const row of await rows.all()) {
-    await row.getByRole('button', { name: 'Успех', exact: true }).click()
-    await expect(row.getByRole('button', { name: 'Успех', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    const success = row.getByRole('button', { name: /^(Успех|Не пил|Был|Выполнено)$/ })
+    await success.click()
+    await expect(success).toHaveAttribute('aria-pressed', 'true')
   }
   await saveAmount(page, '2400')
   await expectAmount(page, 2400, 100)
+  for (const id of ['push-ups', 'abs', 'squats', 'pull-ups']) {
+    const card = page.locator(`[data-amount-habit-id="${id}"]`)
+    await card.getByLabel(/^Итог за день/).fill('0')
+    await card.getByRole('button', { name: 'Сохранить количество', exact: true }).click()
+  }
   await saveTime(durationCard(page), '0', '0')
   await saveTime(durationCard(page, 'social-media'), '0', '0')
   await expect(day(page, past)).toHaveAttribute('data-day-status', 'complete')
@@ -221,7 +227,7 @@ test('derives empty, partial and complete day summaries from real records and ke
   await booleanCard(page).getByRole('button', { name: 'Нет данных', exact: true }).click()
   await expect(day(page, past)).toHaveAttribute('data-day-status', 'partial')
   const entries = await readEntries(page)
-  expect(entries).toHaveLength(11)
+  expect(entries).toHaveLength(23)
   for (const entry of entries) {
     expect(entry).not.toHaveProperty('dayStatus')
     expect(entry).not.toHaveProperty('completionPercent')

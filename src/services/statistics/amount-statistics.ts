@@ -2,6 +2,7 @@ import type { LocalDate } from '../../lib/local-date'
 import type { AmountHabit } from '../../models/habit'
 import type { HabitEntry } from '../../models/habit-entry'
 import { getAmountHabitProgress } from '../habit-service'
+import { isHabitExpectedOnDate } from '../habit-schedule'
 import { getHabitPeriodDates, type StatisticsPeriod } from './period-utils'
 
 export interface AmountStatistics {
@@ -10,6 +11,7 @@ export interface AmountStatistics {
   eligibleDays: number
   ineligibleDays: number
   average: number | null
+  averagePerDay: number | null
   minimum: number | null
   maximum: number | null
   total: number | null
@@ -25,7 +27,8 @@ export function calculateAmountStatistics(
   habit: AmountHabit, entries: HabitEntry[], period: StatisticsPeriod, firstRecordedDate?: LocalDate,
 ): AmountStatistics {
   const byDate = new Map(entries.filter((entry) => entry.habitId === habit.id).map((entry) => [entry.date, entry]))
-  const eligibleDays = getHabitPeriodDates(habit, entries, period, firstRecordedDate).length
+  const eligibleDays = getHabitPeriodDates(habit, entries, period, firstRecordedDate)
+    .filter((date) => isHabitExpectedOnDate(habit, date) || byDate.has(date)).length
   const days = period.dates.map((date) => {
     const result = getAmountHabitProgress(habit, byDate.get(date))
     return { date, value: result.hasEntry ? result.value : null }
@@ -39,6 +42,7 @@ export function calculateAmountStatistics(
   return {
     habit, days, eligibleDays, ineligibleDays: days.length - eligibleDays,
     average: total === null ? null : total / daysWithData,
+    averagePerDay: total === null || eligibleDays === 0 ? null : total / eligibleDays,
     minimum: daysWithData === 0 ? null : Math.min(...values),
     maximum: daysWithData === 0 ? null : Math.max(...values),
     total, daysWithData,

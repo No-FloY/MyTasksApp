@@ -3,6 +3,7 @@ import { assertEditableDate, isLocalDate, type LocalDate } from '../lib/local-da
 import type { DurationHabit } from '../models/habit'
 import type { HabitEntry } from '../models/habit-entry'
 import type { DurationRatingRange } from '../models/duration-rating'
+import { getHabitEntryDate, getWeekStart, isHabitExpectedOnDate, isWeeklyHabit } from './habit-schedule'
 
 export interface DurationHabitWithRating {
   habit: DurationHabit
@@ -101,13 +102,14 @@ export class DurationService {
     if (!isLocalDate(date)) throw new Error('Некорректная календарная дата.')
     return this.database.transaction('r', this.database.habits, this.database.habitEntries, async () => {
       const habits = await this.database.habits.where('type').equals('duration').toArray()
-      const entries = new Map((await this.database.habitEntries.where('date').equals(date).toArray())
-        .map((entry) => [entry.habitId, entry]))
+      const entries = new Map((await this.database.habitEntries.where('date').between(getWeekStart(date), date, true, true).toArray())
+        .map((entry) => [`${entry.habitId}:${entry.date}`, entry]))
       return habits.filter((habit): habit is DurationHabit => habit.type === 'duration' && habit.archivedAt === null)
+        .filter((habit) => isWeeklyHabit(habit) || isHabitExpectedOnDate(habit, date))
         .sort((a, b) => a.order - b.order)
         .map((habit) => {
           validateRatingRanges(habit.ratingRanges)
-          const minutes = readDurationMinutes(entries.get(habit.id))
+          const minutes = readDurationMinutes(entries.get(`${habit.id}:${getHabitEntryDate(habit, date)}`))
           return { habit, minutes, rating: minutes === null ? null : getDurationRating(minutes, habit.ratingRanges) }
         })
     })
@@ -121,12 +123,13 @@ export class DurationService {
       if (!habit || habit.type !== 'duration') throw new Error('Привычка не поддерживает ввод времени.')
       if (habit.archivedAt !== null) throw new Error('Привычка находится в архиве.')
       validateRatingRanges(habit.ratingRanges)
-      const previous = await this.database.habitEntries.get([habitId, date])
+      const entryDate = getHabitEntryDate(habit, date)
+      const previous = await this.database.habitEntries.get([habitId, entryDate])
       readDurationMinutes(previous)
       const now = new Date().toISOString()
       await this.database.habitEntries.put({
         ...previous,
-        habitId, date, type: 'duration', minutes,
+        habitId, date: entryDate, type: 'duration', minutes,
         createdAt: previous?.createdAt ?? now, updatedAt: now,
       })
     })
