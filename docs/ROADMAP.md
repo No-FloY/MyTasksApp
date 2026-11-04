@@ -584,7 +584,7 @@ PWA опубликована в существующем Vercel project и пр�
 
 # Этап 10 — Категории привычек, тренировки и оценка дня/недели
 
-Статус: Реализация и локальные проверки завершены; публикация проверяется.
+Статус: Completed — реализация, полный regression, commit, push и проверка production завершены.
 
 - [x] Стабильные категории Habit, распределение старых определений и группировка Today
 - [x] Сладкое, четыре количественных упражнения, 10 км и факт тренировки
@@ -602,7 +602,7 @@ PWA опубликована в существующем Vercel project и пр�
 - [x] Backup новой модели, импорт предыдущего формата, атомарный round-trip
 - [x] Unit/integration, migration, полный E2E, TypeScript, lint, build
 - [x] WebKit/mobile 320/375/390 и PWA/offline regression
-- [ ] README/архитектура, commit, push main и проверка существующего Vercel production
+- [x] README/архитектура, commit, push main и проверка существующего Vercel production
 
 Уточнение пользователя: отдельный зарезервированный Habit типа rating пока исключён
 из индекса с пояснением; исходные записи сохраняются. Оценки duration вычисляются
@@ -637,5 +637,22 @@ PWA опубликована в существующем Vercel project и пр�
 - README и ARCHITECTURE обновлены. Проверки использовали изолированные тестовые
   хранилища; личная IndexedDB пользователя не изменялась. Новые функции на
   физическом iPhone в рамках этого этапа не проверялись.
+
+Проверено на production 2026-11-04:
+
+- Коммит `899c67d` (`feat: add categorized habits, weekly schedules and scores`)
+  отправлен в `origin/main`. GitHub status Vercel — success, «Deployment has completed».
+- [Production](https://my-tasks-app-xi.vercel.app/) доступен по HTTPS. Проверены
+  все 16 JS/CSS-assets, manifest, иконки, Service Worker и 28 precache-файлов.
+  JavaScript соответствует локальной сборке после нормализации хэшированных
+  импортов; единственное отличие CSS — платформенное округление Lab-компонента
+  цвета на 0,00003. Актуальный entry включён в precache, SW требует revalidation.
+- Production E2E (food/routine, training, PWA) — 21 passed, 3 skipped (1,5 минуты).
+  Пропущены только три проверки offline-транспорта WebKit, описанные выше;
+  реальные обновление и остановка origin проверены локальным PWA suite в обоих движках.
+- Подтверждены v4/v5 → v6, сохранность старых определений/истории/связей,
+  новые категории и отметки, DayScore/coverage/WeeklyScore, статистика,
+  Calendar, reload, export/import v3 и совместимость v1/v2, mobile 320/375/390.
+  Использованы изолированные контексты; личные данные пользователя не изменялись.
 
 После завершения этапа остановиться.
