@@ -15,10 +15,10 @@ function Counts({ data, successLabel, failureLabel }: {
   </dl>
 }
 
-export function FoodRoutineStatistics({ data }: { data: StatisticsDashboard }) {
+export function FoodRoutineStatistics({ data, mode = 'all' }: { data: StatisticsDashboard; mode?: 'all' | 'nutrition' | 'weekly' }) {
   const { alcohol, meals, fullMealDays, eligibleMealDays } = data.food
   return <>
-    {alcohol && <Card className="statistics-card" data-testid="alcohol-statistics">
+    {mode !== 'weekly' && alcohol && <Card className="statistics-card" data-testid="alcohol-statistics">
       <h2>Алкоголь</h2>
       <p className="week-explanation">За выбранный период. «Пил» означает один календарный день с алкоголем; «Нет данных» не считается употреблением.</p>
       <Counts data={alcohol.selected} successLabel="Не пил, дней" failureLabel="Пил алкоголь, дней" />
@@ -31,7 +31,7 @@ export function FoodRoutineStatistics({ data }: { data: StatisticsDashboard }) {
         </table></div>
       </details>}
     </Card>}
-    {meals.length > 0 && <section className="statistics-section" aria-labelledby="meal-statistics-heading" data-testid="meal-statistics">
+    {mode !== 'weekly' && meals.length > 0 && <section className="statistics-section" aria-labelledby="meal-statistics-heading" data-testid="meal-statistics">
       <h2 id="meal-statistics-heading">Приёмы пищи</h2>
       <div className="boolean-statistics-grid">{meals.map((meal) => <Card key={meal.habit.id} className="statistics-habit-card" data-meal-id={meal.habit.id}>
         <h3>{meal.habit.name}{meal.habit.archivedAt && ' · архив'}</h3>
@@ -40,7 +40,7 @@ export function FoodRoutineStatistics({ data }: { data: StatisticsDashboard }) {
       <p>Все три приёма пищи были: <strong data-statistic="full-meal-days">{fullMealDays}</strong> из {eligibleMealDays} дней.</p>
       <p className="week-explanation">Полноценный день питания: завтрак, обед и ужин отмечены как «Был». Пропущенный приём пищи считается невыполнением; «Нет данных» исключено из процента.</p>
     </section>}
-    {data.weeklyHabits.map((item) => <Card key={item.habit.id} className="statistics-card" data-weekly-habit-id={item.habit.id} data-testid={item.habit.id === 'cleaning' ? 'cleaning-statistics' : undefined}>
+    {mode !== 'nutrition' && data.weeklyHabits.map((item) => <Card key={item.habit.id} className="statistics-card" data-weekly-habit-id={item.habit.id} data-testid={item.habit.id === 'cleaning' ? 'cleaning-statistics' : undefined}>
       <h2>{item.habit.name}{item.habit.archivedAt && ' · архив'} · по неделям</h2>
       <Counts data={item} successLabel="Выполненных недель" failureLabel="Невыполненных недель" />
       <p className="week-explanation">Всего: {item.eligibleWeeks} недель. Каждая неделя с понедельника по воскресенье учитывается один раз. Текущая незавершённая неделя без результата и явное «Нет данных» исключены из процента.</p>

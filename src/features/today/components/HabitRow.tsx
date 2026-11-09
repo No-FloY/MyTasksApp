@@ -25,6 +25,7 @@ export function HabitRow({ habit, status, date, index, pending, error, onChange 
   const StatusIcon = statusOptions.find((option) => option.value === status)?.icon ?? Minus
   const weekly = isWeeklyHabit(habit)
   const labels = habit.id === 'no-alcohol' ? ['Не пил', 'Пил']
+    : habit.id === 'no-sweets' ? ['Не ел', 'Ел']
     : ['breakfast', 'lunch', 'dinner'].includes(habit.id) ? ['Был', 'Не было']
     : weekly ? ['Выполнено', 'Не выполнено'] : ['Успех', 'Неудача']
 

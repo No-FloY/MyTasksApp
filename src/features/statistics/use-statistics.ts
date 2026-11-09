@@ -8,7 +8,7 @@ export function useStatistics(period: StatisticsPeriod, now: Date) {
   const [attempt, setAttempt] = useState(0)
   const [state, setState] = useState<{ key: string; data?: StatisticsDashboard; error?: boolean } | null>(null)
   const timestamp = now.getTime()
-  const key = `${period.startDate}/${period.endDate}/${period.today}/${attempt}`
+  const key = `${period.preset}/${period.anchorDate}/${period.startDate}/${period.endDate}/${period.today}/${attempt}`
   useEffect(() => {
     let active = true
     let subscription: Subscription | undefined

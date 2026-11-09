@@ -76,7 +76,8 @@ export function getHabitScore(habit: Habit, entry: HabitEntry | undefined): numb
   throw new Error('Тип записи не соответствует привычке.')
 }
 
-function calculateDays(
+/** Precompute a timeline once for the overview, chart and selected day. */
+export function calculateDayScores(
   habits: Habit[], entries: HabitEntry[], period: StatisticsPeriod, firstRecordedDates?: ReadonlyMap<string, LocalDate>,
 ): DayScoreData[] {
   const entriesByHabit = new Map<string, HabitEntry[]>()
@@ -122,19 +123,23 @@ export function calculateDayScore(
   habits: Habit[], entries: HabitEntry[], date: LocalDate, firstRecordedDates?: ReadonlyMap<string, LocalDate>,
 ): DayScoreData {
   const period = getStatisticsPeriod('custom', date, { startDate: date, endDate: date })
-  return calculateDays(habits, entries, period, firstRecordedDates)[0]!
+  return calculateDayScores(habits, entries, period, firstRecordedDates)[0]!
 }
 
 /** Calendar week to the chosen date; each weekly goal contributes once inside its category. */
 export function calculateWeeklyScore(
   habits: Habit[], entries: HabitEntry[], endDate: LocalDate, firstRecordedDates?: ReadonlyMap<string, LocalDate>,
   today: LocalDate = endDate,
+  preparedDays?: DayScoreData[],
 ): WeeklyScoreData {
   const period = getStatisticsPeriod('custom', today, { startDate: getWeekStart(endDate), endDate })
-  const days = calculateDays(habits, entries, period, firstRecordedDates)
+  const days = preparedDays ?? calculateDayScores(habits, entries, period, firstRecordedDates)
   const sufficientDays = days.filter((day) => day.sufficient)
   // Assigned weekly goals can appear in a DayScore, but are never counted twice here.
-  const dailyDays = calculateDays(habits.filter((habit) => !isWeeklyHabit(habit)), entries, period, firstRecordedDates)
+  const hasAssignedWeeklyGoals = habits.some((habit) => habit.schedule?.type === 'weekly' && habit.schedule.weekday !== undefined)
+  const dailyDays = hasAssignedWeeklyGoals
+    ? calculateDayScores(habits.filter((habit) => !isWeeklyHabit(habit)), entries, period, firstRecordedDates)
+    : days
   const sufficientDailyDays = dailyDays.filter((day) => day.sufficient)
   const weeklyGoals = habits.filter((habit) => isWeeklyHabit(habit) && habit.type !== 'rating').flatMap((habit) => {
     const occurrence = getWeeklyHabitOccurrences(habit, entries, period, firstRecordedDates?.get(habit.id))[0]

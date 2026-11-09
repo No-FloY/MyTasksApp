@@ -363,7 +363,7 @@ describe('backup export and atomic replacement', () => {
     })
     expect(snapshot.data.habits).toHaveLength(23)
     expect(snapshot.data).toStrictEqual(await readData())
-    expect(database.verno).toBe(6)
+    expect(database.verno).toBe(7)
   })
 
   it('exports a genuinely empty database without adding seed data', async () => {

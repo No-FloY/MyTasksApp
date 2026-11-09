@@ -75,8 +75,8 @@ describe('goal migration from IndexedDB v3 to v4', () => {
     legacy.close()
     const current = await currentDatabase(legacy.name)
 
-    expect(current.verno).toBe(6)
-    expect(current.backendDB().version).toBe(60)
+    expect(current.verno).toBe(7)
+    expect(current.backendDB().version).toBe(70)
     expect(current.tables.map(({ name }) => name).sort()).toEqual(['goalMilestones', 'goals', 'habitEntries', 'habits', 'tasks'])
     expect(await current.habits.toArray()).toStrictEqual(habits)
     expect(await current.habitEntries.toArray()).toStrictEqual(entries)

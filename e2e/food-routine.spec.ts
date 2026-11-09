@@ -1,3 +1,4 @@
+import { selectStatisticsSection } from './statistics-navigation'
 import { readFile } from 'node:fs/promises'
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { expectNoOverflow, readDatabase, waitForServiceWorker } from '../scripts/pwa-test/helpers'
@@ -85,6 +86,7 @@ test('records meals and alcohol with balanced day scores, one weekly cleaning re
   await mark(page, 'cleaning', 'Не выполнено')
 
   await page.goto('/#statistics?period=month')
+  await selectStatisticsSection(page, 'Питание')
   const alcohol = page.getByTestId('alcohol-statistics')
   await expect(metric(alcohol, 'failure')).toHaveText('1')
   await expect(metric(alcohol, 'success')).toHaveText('1')
@@ -100,6 +102,7 @@ test('records meals and alcohol with balanced day scores, one weekly cleaning re
     await expect(metric(meal, 'success-rate')).toHaveText(id === 'lunch' ? '50%' : '100%')
   }
   await expect(metric(meals, 'full-meal-days')).toHaveText('1')
+  await selectStatisticsSection(page, 'Привычки')
   const cleaning = page.getByTestId('cleaning-statistics')
   await expect(metric(cleaning, 'success')).toHaveText('1')
   // The first week is only partly tracked: it must not infer a full-week failure.
@@ -107,6 +110,7 @@ test('records meals and alcohol with balanced day scores, one weekly cleaning re
   await expect(metric(cleaning, 'no-data')).toHaveText('2')
   await expect(metric(cleaning, 'success-rate')).toHaveText('50%')
   await page.goto('/#statistics?period=custom&from=2026-10-01&to=2026-10-07')
+  await selectStatisticsSection(page, 'Питание')
   await expect(metric(alcohol, 'failure')).toHaveText('0')
   await expect(metric(alcohol, 'current-month-drinking-days')).toHaveText('1')
 
@@ -152,6 +156,7 @@ test('keeps unfilled category progress visible and new actions usable at 320/375
     await toggle.click()
     await expect(row(page, 'breakfast')).toBeVisible()
     await page.goto('/#statistics?period=month')
+    await selectStatisticsSection(page, 'Привычки')
     await expect(page.getByTestId('cleaning-statistics')).toBeVisible()
     await expectNoOverflow(page)
     await page.goto('/#today')
@@ -173,7 +178,9 @@ test('saves meals, alcohol and one weekly result offline with reload persistence
   expect(await readDatabase(page)).toEqual(saved)
   await expect(page.getByTestId('day-filled')).toHaveText('4 / 22')
   await page.goto('/#statistics?period=month')
+  await selectStatisticsSection(page, 'Питание')
   await expect(metric(page.getByTestId('alcohol-statistics'), 'current-month-drinking-days')).toHaveText('1')
   await expect(metric(page.getByTestId('meal-statistics'), 'full-meal-days')).toHaveText('1')
+  await selectStatisticsSection(page, 'Привычки')
   await expect(metric(page.getByTestId('cleaning-statistics'), 'success')).toHaveText('1')
 })

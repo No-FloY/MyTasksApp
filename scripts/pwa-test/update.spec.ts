@@ -22,6 +22,7 @@ test('detects a real second build and updates only after consent and closing ano
     await page.locator('[data-habit-id="no-alcohol"]').getByRole('button', { name: 'Не пил', exact: true }).click()
     await page.locator('[data-habit-id="breakfast"]').getByRole('button', { name: 'Был', exact: true }).click()
     await page.locator('[data-habit-id="cleaning"]').getByRole('button', { name: 'Выполнено', exact: true }).click()
+    await page.locator('[data-habit-id="no-sweets"]').getByRole('button', { name: 'Не ел', exact: true }).click()
     await expect(page.locator('[data-habit-id="cleaning"]').getByRole('button', { name: 'Выполнено', exact: true })).toHaveAttribute('aria-pressed', 'true')
     const supported = await page.evaluate(() => 'serviceWorker' in navigator)
     test.skip(!supported, 'This browser runtime does not expose Service Worker; a real iPhone is required for standalone update verification.')
@@ -93,6 +94,11 @@ test('detects a real second build and updates only after consent and closing ano
     await expect(page.locator('html')).toHaveAttribute('data-pwa-test-lazy-build', 'b')
     await expectNoOverflow(page)
     expect(await readDatabase(page)).toEqual(before)
+    // Statistics is another previously unvisited lazy route, served from the real updated cache.
+    await page.goto('/#statistics?period=day&date=2026-10-23')
+    await expect(page.getByTestId('dashboard-score')).toBeVisible()
+    await expect(page.getByLabel('Опорная дата', { exact: true })).toHaveValue('2026-10-23')
+    await expectNoOverflow(page)
     await page.close()
     const reopened = await context.newPage()
     reopened.on('pageerror', (error) => errors.push(error.message))
@@ -114,20 +120,37 @@ test('detects a real second build and updates only after consent and closing ano
     await offlineExercise.getByRole('button', { name: 'Сохранить количество', exact: true }).click()
     await expect(offlineExercise.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '100')
     await reopened.locator('[data-habit-id="no-alcohol"]').getByRole('button', { name: 'Пил', exact: true }).click()
+    await reopened.locator('[data-habit-id="no-sweets"]').getByRole('button', { name: 'Ел', exact: true }).click()
     for (const id of ['lunch', 'dinner']) {
       await reopened.locator(`[data-habit-id="${id}"]`).getByRole('button', { name: 'Был', exact: true }).click()
     }
     await reopened.locator('[data-habit-id="cleaning"]').getByRole('button', { name: 'Не выполнено', exact: true }).click()
+    await expect(reopened.locator('[data-habit-id="cleaning"]').getByRole('button', { name: 'Не выполнено', exact: true })).toHaveAttribute('aria-pressed', 'true')
     await reopened.reload()
     const offline = await readDatabase(reopened)
     expect(offline.habitEntries.find((entry) => entry.habitId === 'push-ups')).toMatchObject({ value: 130 })
     expect(offline.habitEntries.find((entry) => entry.habitId === 'no-alcohol')).toMatchObject({ status: 'failure' })
+    expect(offline.habitEntries.find((entry) => entry.habitId === 'no-sweets')).toMatchObject({ status: 'failure' })
     expect(offline.habitEntries.filter((entry) => entry.habitId === 'cleaning')).toEqual([
       expect.objectContaining({ status: 'failure', date: '2026-10-19' }),
     ])
     for (const id of ['breakfast', 'lunch', 'dinner']) {
       expect(offline.habitEntries.find((entry) => entry.habitId === id)).toMatchObject({ status: 'success' })
     }
+    await reopened.getByRole('link', { name: 'Открыть статистику за день', exact: true }).click()
+    await expect(reopened).toHaveURL(/#statistics\?period=day&date=2026-10-23$/)
+    await expect(reopened.getByTestId('dashboard-score')).toBeVisible()
+    await reopened.getByRole('tab', { name: 'Питание', exact: true }).click()
+    await expect(reopened.getByTestId('meal-statistics').locator('[data-statistic="full-meal-days"]')).toHaveText('1')
+    await reopened.getByRole('button', { name: 'Неделя', exact: true }).click()
+    await expect(reopened.getByTestId('statistics-period-label')).toHaveText(/19 окт\. 2026 — 23 окт\. 2026/)
+    await reopened.getByRole('button', { name: 'Месяц', exact: true }).click()
+    await reopened.getByRole('tab', { name: 'Обзор', exact: true }).click()
+    await expect(reopened.getByTestId('dashboard-score')).toBeVisible()
+    await reopened.reload()
+    await expect(reopened.getByLabel('Выбранный месяц', { exact: true })).toHaveValue('2026-10')
+    expect(await readDatabase(reopened)).toEqual(offline)
+    await expectNoOverflow(reopened)
     expect(errors).toEqual([])
   } finally {
     await context.close()

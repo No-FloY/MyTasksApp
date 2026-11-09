@@ -27,9 +27,15 @@ export function DayHabits({ date, mode }: { date: LocalDate; mode: 'today' | 'ca
   })).filter((category) => category.booleans.length + category.amounts.length + category.durations.length > 0)
 
   return <>
-    {date <= getLocalDate() && <DayScore date={date} />}
-    {date <= getLocalDate() && <TodayWeeklyScore date={date} />}
-    <div className="day-habits">
+    {date <= getLocalDate() && <div className="day-score-widgets">
+      <DayScore date={date} onStartEntry={() => {
+        const inputs = document.getElementById('day-habit-inputs')
+        inputs?.scrollIntoView({ block: 'start' })
+        inputs?.focus({ preventScroll: true })
+      }} />
+      <TodayWeeklyScore date={date} />
+    </div>}
+    <div className="day-habits" id="day-habit-inputs" tabIndex={-1}>
       <div className="habits-card-heading day-habits-heading">
         <div><h2>Ежедневные привычки</h2><p>{mode === 'calendar' ? 'Результаты выбранного дня и недели' : 'Как проходит ваш день? Недельные привычки отмечаются один раз.'}</p></div>
         {!loading && !error && <span className="habit-count">Всего: {count}</span>}

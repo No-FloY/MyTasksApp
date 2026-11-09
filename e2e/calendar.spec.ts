@@ -1,3 +1,4 @@
+import { selectStatisticsSection, selectStatisticsPeriod } from './statistics-navigation'
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import type { HabitEntry } from '../src/models/habit-entry'
 
@@ -180,6 +181,8 @@ test('edits all tracker types in a past day, replaces totals and restores histor
 
   await page.getByRole('navigation', { name: 'Разделы приложения' })
     .getByRole('link', { name: 'Статистика', exact: true }).click()
+  await selectStatisticsPeriod(page, '7d')
+  await selectStatisticsSection(page, 'Экранное время')
   const gamingStatistics = page.locator('[data-duration-statistics-id="gaming"]')
   await expect(gamingStatistics.locator('[data-statistic="total"]')).toContainText('1 ч 30 мин')
   await expect(gamingStatistics.locator('[data-statistic="average"]')).toContainText('1 ч 30 мин')
@@ -207,7 +210,7 @@ test('derives empty, partial and complete day summaries from real records and ke
   const rows = page.locator('[data-habit-id]')
   await expect(rows).toHaveCount(16)
   for (const row of await rows.all()) {
-    const success = row.getByRole('button', { name: /^(Успех|Не пил|Был|Выполнено)$/ })
+    const success = row.getByRole('button', { name: /^(Успех|Не пил|Не ел|Был|Выполнено)$/ })
     await success.click()
     await expect(success).toHaveAttribute('aria-pressed', 'true')
   }
@@ -443,6 +446,8 @@ test('updates the calendar and weekly statistics live when the same records chan
 
   await otherPage.getByRole('navigation', { name: 'Разделы приложения' })
     .getByRole('link', { name: 'Статистика', exact: true }).click()
+  await selectStatisticsPeriod(otherPage, '7d')
+  await selectStatisticsSection(otherPage, 'Экранное время')
   const statistic = otherPage.locator('[data-duration-statistics-id="gaming"] [data-statistic="total"]')
   await day(page, past).click()
   await saveTime(durationCard(page), '2', '0')

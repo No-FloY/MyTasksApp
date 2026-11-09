@@ -4,7 +4,7 @@ import type { Habit } from '../models/habit'
 import type { HabitEntry } from '../models/habit-entry'
 import type { Task } from '../models/task'
 import type { Goal, GoalMilestone } from '../models/goal'
-import { createInitialHabits, createStageTenAdditionalHabits } from './seed'
+import { createInitialHabits, createStageTenAdditionalHabits, createSweetsHabit } from './seed'
 import { getInitialDurationRanges } from './duration-defaults'
 import { backfillHabitDefinitions, type LegacyHabit } from './habit-backfill'
 
@@ -77,6 +77,22 @@ export class TaskTrackerDatabase extends Dexie {
       const ids = new Set(await habits.toCollection().primaryKeys())
       const missing = createStageTenAdditionalHabits(new Date().toISOString()).filter((habit) => !ids.has(habit.id))
       if (missing.length > 0) await habits.bulkAdd(missing)
+    })
+
+    // Stage 11 reuses the existing identity: never duplicate or reset its history/settings.
+    this.version(7).stores({
+      habits: 'id, type, order',
+      habitEntries: '[habitId+date], habitId, date, type',
+      tasks: 'id, date, status, goalId',
+      goals: 'id, status, deadline',
+      goalMilestones: 'id, goalId, [goalId+order]',
+    }).upgrade(async (transaction) => {
+      const habits = transaction.table<Habit>('habits')
+      const existing = await habits.get('no-sweets')
+      if (!existing) await habits.add(createSweetsHabit(new Date().toISOString()))
+      else if (existing.type === 'boolean' && existing.name === 'Без сладкого и шоколада') {
+        await habits.update(existing.id, { name: 'Без сладкого / шоколада' })
+      }
     })
 
     // populate runs once, in the creation transaction. Reopening never resets data.

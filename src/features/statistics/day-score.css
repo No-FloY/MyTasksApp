@@ -1,14 +1,15 @@
-.day-score-card { min-width: 0; margin: 0 0 22px; padding: 18px; border: 1px solid #dce5d6; border-radius: 12px; background: #f7faf3; color: #40583d; }
+.day-score-widgets { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin-bottom: 24px; align-items: start; }
+.day-score-card { min-width: 0; margin: 0; padding: 16px; border: 1px solid #dce5d6; border-radius: 16px; background: #f7faf3; color: #40583d; }
 .day-score-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
 .day-score-heading > div { min-width: 0; }
 .day-score-heading h2 { margin: 0 0 5px; font-size: 17px; font-weight: 600; line-height: 1.4; }
 .day-score-heading time, .day-score-dates { color: #6b7961; font-size: 12px; line-height: 1.6; }
 .day-score-dates { margin: 0; }
 .day-score-value { font-size: 24px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.day-score-coverage { margin: 13px 0 0; font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+.day-score-coverage { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .day-score-interpretation, .day-score-warning { margin: 7px 0 0; font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
 .day-score-warning { color: #806839; }
-.day-score-details { margin-top: 10px; min-width: 0; }
+.day-score-details { margin-top: 0; min-width: 0; border-top: 1px solid #e2e9dc; }
 .day-score-details summary { min-height: 44px; padding: 12px 0; font-size: 12px; line-height: 1.7; cursor: pointer; }
 .day-score-details summary:focus-visible { outline: 2px solid #476951; outline-offset: 3px; border-radius: 4px; }
 .day-score-details p { font-size: 12px; line-height: 1.7; color: #69765f; }
@@ -30,3 +31,30 @@
 .weekly-score-goals > div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .weekly-score-goals dt { min-width: 0; overflow-wrap: anywhere; color: #596953; font-size: 13px; }
 .weekly-score-goals dd { flex-shrink: 0; margin: 0; color: #355842; font-size: 14px; font-weight: 600; }
+.score-card-body { display: flex; align-items: center; gap: 14px; margin-top: 12px; }
+.score-card-context { min-width: 0; flex: 1; }
+.score-ring { position: relative; width: 84px; height: 84px; flex: 0 0 84px; color: #437958; }
+.score-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); overflow: visible; }
+.score-ring circle { fill: none; stroke-width: 6; }
+.score-ring-track { stroke: #dfe7da; }
+.score-ring-progress { stroke: currentColor; }
+.score-ring strong { position: absolute; inset: 0; display: grid; place-content: center; padding: 13px; text-align: center; font-size: 23px; line-height: 1.25; font-variant-numeric: tabular-nums; }
+.score-ring-medium { color: #887324; }
+.score-ring-low { color: #a15c4c; }
+.score-ring-empty { color: #71806a; }
+.score-ring-empty strong { font-size: 12px; font-weight: 500; }
+.score-ring-empty .score-ring-track { stroke-dasharray: 4 4; }
+.score-ring-small { width: 70px; height: 70px; flex-basis: 70px; }
+.score-ring-small strong { font-size: 19px; }
+.score-ring-small.score-ring-empty strong { font-size: 11px; }
+.score-category-preview { display: flex; flex-wrap: wrap; gap: 5px; list-style: none; padding: 0; margin: 12px 0 4px; }
+.score-category-preview li { display: flex; gap: 6px; align-items: baseline; min-width: 0; padding: 4px 7px; border-radius: 6px; background: #edf2e7; font-size: 10px; line-height: 1.4; }
+.score-category-preview span { overflow-wrap: anywhere; }
+.score-category-preview strong { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.score-category-preview .score-category-more { background: transparent; color: #69765f; }
+.score-statistics-link, .score-entry-action { display: flex; align-items: center; gap: 8px; min-height: 44px; width: fit-content; max-width: 100%; font-size: 12px; line-height: 1.5; font-weight: 600; text-decoration: none; color: #365d44; overflow-wrap: anywhere; }
+.score-statistics-link:focus-visible, .score-entry-action:focus-visible { outline: 2px solid #476951; outline-offset: 3px; border-radius: 4px; }
+.score-statistics-link:hover { text-decoration: underline; }
+.score-entry-action { border: 0; background: transparent; padding: 0; cursor: pointer; }
+#day-habit-inputs { scroll-margin-top: 24px; }
+@media (min-width: 700px) { .day-score-widgets { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

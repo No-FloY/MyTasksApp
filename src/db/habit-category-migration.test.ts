@@ -144,8 +144,8 @@ describe('real legacy schema upgrade to schema v6', () => {
 
     const current = track(new TaskTrackerDatabase(legacy.name))
     await current.open()
-    expect(current.verno).toBe(6)
-    expect(current.backendDB().version).toBe(60)
+    expect(current.verno).toBe(7)
+    expect(current.backendDB().version).toBe(70)
     expect(current.tables.map((table) => table.name).sort()).toEqual(['goalMilestones', 'goals', 'habitEntries', 'habits', 'tasks'])
     expect(current.habits.schema).toStrictEqual(schema)
     expect(await current.habits.count()).toBe(22)
@@ -190,7 +190,7 @@ describe('real legacy schema upgrade to schema v6', () => {
     const retry = track(new TaskTrackerDatabase(legacy.name))
     await retry.open()
     expect(await retry.habits.count()).toBe(23)
-    expect(retry.backendDB().version).toBe(60)
+    expect(retry.backendDB().version).toBe(70)
   })
 
   it('adds the supplement to an existing v5 without changing definitions, weekly settings or history', async () => {
@@ -213,7 +213,7 @@ describe('real legacy schema upgrade to schema v6', () => {
 
     const current = track(new TaskTrackerDatabase(legacy.name))
     await current.open()
-    expect(current.verno).toBe(6)
+    expect(current.verno).toBe(7)
     expect(await current.habits.count()).toBe(23)
     for (const original of definitions) expect(await current.habits.get(original.id)).toStrictEqual(original)
     expect(await current.habitEntries.orderBy('[habitId+date]').toArray()).toStrictEqual(entries)

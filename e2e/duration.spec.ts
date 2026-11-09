@@ -1,3 +1,4 @@
+import { selectStatisticsSection, selectStatisticsPeriod } from './statistics-navigation'
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { createInitialHabits } from '../src/db/seed'
 import { isLocalDate } from '../src/lib/local-date'
@@ -58,6 +59,8 @@ async function openStatistics(page: Page) {
   await page.getByRole('navigation', { name: 'Разделы приложения' })
     .getByRole('link', { name: 'Статистика', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Статистика', level: 1, exact: true })).toBeVisible()
+  await selectStatisticsPeriod(page, '7d')
+  await selectStatisticsSection(page, 'Экранное время')
 }
 
 function historyEntry(habitId: DurationHabitId, date: string, minutes: number): DurationHabitEntry {
@@ -169,7 +172,7 @@ test('migrates the existing version-one database without losing boolean, water o
       }
     }
   }))
-  expect(migrated.version).toBe(60)
+  expect(migrated.version).toBe(70)
   expect(migrated.stores.sort()).toEqual(['goalMilestones', 'goals', 'habitEntries', 'habits', 'tasks'])
   expect(migrated.habits).toHaveLength(23)
   expect(migrated.habits).toEqual(expect.arrayContaining(initialHabits))
@@ -342,6 +345,7 @@ test('calculates seven-day totals, averages and ratings from saved minutes witho
   }
   expect(await readEntries(page)).toHaveLength(history.length)
   await page.reload()
+  await selectStatisticsSection(page, 'Экранное время')
   await expect(gaming.locator('[data-statistic="total"]')).toContainText('23 ч 0 мин')
   await expect(social.locator('[data-statistic="average"]')).toContainText('1 ч 5 мин')
   expect(errors).toEqual([])

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { getLocalDate, isLocalDate, type LocalDate } from '../../lib/local-date'
 import type { BooleanHabit } from '../../models/habit'
 import type { BooleanHabitEntry } from '../../models/habit-entry'
-import { getDateRange, getHabitPeriodDates, getStatisticsPeriod, getTimestampLocalDate, getWeekPeriods } from './period-utils'
+import { canNavigateStatisticsPeriod, getDateRange, getHabitPeriodDates, getStatisticsLink, getStatisticsPeriod, getTimestampLocalDate, getWeekPeriods, shiftStatisticsPeriod } from './period-utils'
 
 function date(value: string): LocalDate {
   if (!isLocalDate(value)) throw new Error('Invalid fixture date')
@@ -125,5 +125,86 @@ describe('habit lifecycle inside a statistics period', () => {
     vi.stubEnv('TZ', 'Europe/Moscow')
     const localized = { ...habit, createdAt: '2026-10-12T22:30:00.000Z', archivedAt: '2026-10-13T22:30:00.000Z' }
     expect(getHabitPeriodDates(localized, [], period)).toEqual(['2026-10-13', '2026-10-14'])
+  })
+})
+
+describe('anchored dashboard period selection and navigation', () => {
+  it('selects an exact historical day and retains the anchor', () => {
+    expect(getStatisticsPeriod('day', today, undefined, date('2026-09-15'))).toMatchObject({
+      startDate: '2026-09-15', endDate: '2026-09-15', anchorDate: '2026-09-15', dates: ['2026-09-15'],
+    })
+  })
+
+  it('selects Monday–Sunday weeks across years and clips the current week to today', () => {
+    expect(getStatisticsPeriod('week', today)).toMatchObject({ startDate: '2026-10-12', endDate: today })
+    expect(getStatisticsPeriod('week', date('2027-01-07'), undefined, date('2027-01-01')))
+      .toMatchObject({ startDate: '2026-12-28', endDate: '2027-01-03' })
+  })
+
+  it('selects a complete historical month and handles leap February', () => {
+    const result = getStatisticsPeriod('month', date('2028-03-15'), undefined, date('2028-02-23'))
+    expect(result).toMatchObject({ startDate: '2028-02-01', endDate: '2028-02-29', anchorDate: '2028-02-23' })
+    expect(result.dates).toHaveLength(29)
+  })
+
+  it.each(['day', 'week', 'month', '3m', '6m', 'year'] as const)('clamps a future %s link without including future dates', (preset) => {
+    const period = getStatisticsPeriod(preset, today, undefined, date('2027-02-20'))
+    expect(period.anchorDate).toBe(today)
+    expect(period.endDate).toBe(today)
+    expect(period.dates.every((value) => value <= today)).toBe(true)
+  })
+
+  it('moves daily views across local DST without skipping or duplicating a calendar date', () => {
+    vi.stubEnv('TZ', 'America/Los_Angeles')
+    const period = getStatisticsPeriod('day', date('2026-11-04'), undefined, date('2026-11-01'))
+    expect(shiftStatisticsPeriod(period, -1).anchorDate).toBe('2026-10-31')
+    expect(shiftStatisticsPeriod(period, 1).anchorDate).toBe('2026-11-02')
+  })
+
+  it('moves to complete previous weeks and returns to the partial current week', () => {
+    const period = getStatisticsPeriod('week', today)
+    const previous = shiftStatisticsPeriod(period, -1)
+    expect(previous).toMatchObject({ startDate: '2026-10-05', endDate: '2026-10-11', anchorDate: '2026-10-05' })
+    expect(shiftStatisticsPeriod(previous, 1)).toMatchObject({ startDate: period.startDate, endDate: period.endDate })
+    expect(canNavigateStatisticsPeriod(period, 1)).toBe(false)
+    expect(canNavigateStatisticsPeriod(previous, 1)).toBe(true)
+  })
+
+  it('moves calendar months using stable first-of-month anchors', () => {
+    const march = getStatisticsPeriod('month', date('2028-03-31'))
+    const february = shiftStatisticsPeriod(march, -1)
+    expect(february).toMatchObject({ startDate: '2028-02-01', endDate: '2028-02-29' })
+    expect(shiftStatisticsPeriod(february, 1)).toMatchObject({ startDate: march.startDate, endDate: march.endDate })
+    expect(canNavigateStatisticsPeriod(march, 1)).toBe(false)
+  })
+
+  it.each([['3m', '2026-07-16'], ['6m', '2026-04-16'], ['year', '2025-10-16']] as const)(
+    'navigates anchored %s periods by their own interval', (preset, previousAnchor) => {
+      const current = getStatisticsPeriod(preset, today)
+      const previous = shiftStatisticsPeriod(current, -1)
+      expect(previous.anchorDate).toBe(previousAnchor)
+      expect(shiftStatisticsPeriod(previous, 1)).toMatchObject({ startDate: current.startDate, endDate: today })
+      expect(canNavigateStatisticsPeriod(current, 1)).toBe(false)
+    })
+
+  it('preserves explicit custom endpoints and leaves their manual controls in charge', () => {
+    const custom = getStatisticsPeriod('custom', today, { startDate: '2026-09-03', endDate: '2026-09-08' })
+    expect(custom).toMatchObject({ startDate: '2026-09-03', endDate: '2026-09-08', anchorDate: '2026-09-08' })
+    expect(custom.dates).toHaveLength(6)
+    expect(shiftStatisticsPeriod(custom, -1)).toBe(custom)
+    expect(canNavigateStatisticsPeriod(custom, 1)).toBe(false)
+  })
+
+  it('keeps legacy previous-month and 7d views navigable', () => {
+    const previousMonth = getStatisticsPeriod('previous-month', today)
+    expect(shiftStatisticsPeriod(previousMonth, 1)).toMatchObject({ preset: 'month', startDate: '2026-10-01', endDate: today })
+    expect(shiftStatisticsPeriod(getStatisticsPeriod('7d', today), -1))
+      .toMatchObject({ startDate: '2026-10-03', endDate: '2026-10-09' })
+  })
+
+  it('shares the exact selected-date hash contract for Today score links', () => {
+    expect(getStatisticsLink('day', today)).toBe('#statistics?period=day&date=2026-10-16')
+    expect(getStatisticsLink('week', today)).toBe('#statistics?period=week&date=2026-10-16')
+    expect(() => getStatisticsLink('day', 'bad' as LocalDate)).toThrow('календарная дата')
   })
 })

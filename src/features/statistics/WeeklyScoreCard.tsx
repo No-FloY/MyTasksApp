@@ -1,6 +1,8 @@
 import { HABIT_CATEGORIES } from '@/models/habit-category'
 import type { WeeklyScoreData } from '@/services/statistics/day-score'
+import { getStatisticsLink } from '@/services/statistics/period-utils'
 import { formatRate, formatStatisticsDate } from './format-statistics'
+import { ScoreCategoryPreview, ScoreRing } from './ScoreRing'
 import './day-score.css'
 
 function WeeklyMetrics({ data }: { data: WeeklyScoreData }) {
@@ -20,15 +22,17 @@ function WeeklyMetrics({ data }: { data: WeeklyScoreData }) {
 }
 
 export function WeeklyScoreCard({ data, compact = false }: { data: WeeklyScoreData; compact?: boolean }) {
-  return <section className="day-score-card weekly-score-card" aria-label="Оценка недели" data-testid="weekly-score">
-    <div className="day-score-heading"><div><h2>Оценка недели</h2><p className="day-score-dates"><time dateTime={data.startDate}>{formatStatisticsDate(data.startDate, true)}</time> — <time dateTime={data.endDate}>{formatStatisticsDate(data.endDate, true)}</time></p></div>
-      <strong className="day-score-value" data-statistic="weekly-score" data-testid="weekly-score-value">{formatRate(data.score === null ? null : Math.round(data.score))}</strong></div>
-    <p className="day-score-coverage">Средняя заполненность: <strong data-statistic="weekly-coverage" data-testid="weekly-coverage">{formatRate(data.averageCoverage === null ? null : Math.round(data.averageCoverage))}</strong></p>
-    <p className="day-score-interpretation">Дней с заполненностью не ниже 50%: {data.sufficientDays} из {data.days.length}. Недельные цели учитываются отдельно, по одному разу.</p>
+  return <section className={`day-score-card weekly-score-card${compact ? ' weekly-score-compact' : ''}`} aria-label="Оценка недели" data-testid="weekly-score">
+    <div className="day-score-heading"><div><h2>Оценка недели</h2><p className="day-score-dates"><time dateTime={data.startDate}>{formatStatisticsDate(data.startDate, true)}</time> — <time dateTime={data.endDate}>{formatStatisticsDate(data.endDate, true)}</time></p></div></div>
+    <div className="score-card-body"><ScoreRing score={data.score} label="Оценка недели" statistic="weekly-score" testId="weekly-score-value" />
+    <div className="score-card-context"><p className="day-score-coverage">Средняя заполненность: <strong data-statistic="weekly-coverage" data-testid="weekly-coverage">{formatRate(data.averageCoverage === null ? null : Math.round(data.averageCoverage))}</strong></p>
+    <p className="day-score-interpretation">{data.score === null ? 'Отметки дня и недельных целей появятся здесь.' : `Дней с заполненностью ≥ 50%: ${data.sufficientDays} из ${data.days.length}.`}</p>
+    </div></div>
+    <ScoreCategoryPreview categories={data.categories} />
     {data.weeklyGoals.length > 0 && <dl className="weekly-score-goals">{data.weeklyGoals.map((goal) => <div key={goal.id} data-weekly-score-habit={goal.id}><dt>{goal.name} · раз в неделю</dt><dd data-weekly-habit-result={goal.id}>{formatRate(goal.score)}</dd></div>)}</dl>}
-    {!compact && <WeeklyMetrics data={data} />}
-    <details className="day-score-details"><summary>Оценки по дням и правила недели</summary>
-      {compact && <WeeklyMetrics data={data} />}
+    <a className="score-statistics-link" href={getStatisticsLink('week', data.endDate)} aria-label="Открыть статистику за неделю">Статистика недели <span aria-hidden="true">↗</span></a>
+    <details className="day-score-details"><summary aria-label="Подробнее об оценке недели">Подробнее</summary>
+      <WeeklyMetrics data={data} />
       <div className="weekly-score-table-wrap"><table className="weekly-score-table"><caption>Календарная неделя с понедельника до выбранной даты</caption>
         <thead><tr><th scope="col">Дата</th><th scope="col">Оценка</th><th scope="col">Заполненность</th></tr></thead>
         <tbody>{data.days.map((day) => <tr key={day.date}><th scope="row"><time dateTime={day.date}>{formatStatisticsDate(day.date, true)}</time></th>

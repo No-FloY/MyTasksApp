@@ -1,3 +1,4 @@
+import { selectStatisticsSection } from './statistics-navigation'
 import { readFile } from 'node:fs/promises'
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { createInitialHabits } from '../src/db/seed'
@@ -165,7 +166,8 @@ test('renames, archives and restores habits while keeping history, calendar note
   await expect(archived).toContainText('Мой английский')
   await expect(archived).toContainText('Практика и заметка')
   await expect(archived).toContainText('Успех')
-  await page.goto('/#statistics')
+  await page.goto('/#statistics?period=7d')
+  await selectStatisticsSection(page, 'Привычки')
   await expect(page.locator('[data-boolean-statistics-id="english"]')).toContainText('Архив')
   expect((await readDatabase(page)).habitEntries).toEqual(before.habitEntries)
   await openSettings(page)
@@ -199,7 +201,8 @@ test('changes the water target and duration boundaries without rewriting recorde
   await expect(water.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '88')
   await expect(page.locator('[data-duration-habit-id="gaming"]')).toContainText('Мой баланс')
   await expect(page.locator('[data-duration-habit-id="social-media"]')).toContainText('Без лишнего времени')
-  await page.goto('/#statistics')
+  await page.goto('/#statistics?period=7d')
+  await selectStatisticsSection(page, 'Питание')
   await expect(page.locator('[data-amount-statistics-id="water"] [data-statistic="successful"]')).toHaveText('1 / 2 дн.')
   expect((await readDatabase(page)).habitEntries).toEqual(entries)
 })
@@ -419,7 +422,8 @@ test('wraps edited category labels and symbols in daily trackers, calendar and s
       await tracker.getByText('Как считается оценка', { exact: true }).click()
       await assertLayout()
     }
-    await page.goto('/#statistics')
+    await page.goto('/#statistics?period=7d')
+    await selectStatisticsSection(page, 'Экранное время')
     const statistics = page.locator('[data-duration-statistics-id="gaming"]')
     await expect(statistics.locator('.rating-distribution')).toContainText(label)
     await expect(statistics.getByRole('table')).toBeVisible()

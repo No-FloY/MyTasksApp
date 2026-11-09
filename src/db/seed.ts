@@ -1,4 +1,4 @@
-import type { Habit } from '../models/habit'
+import type { BooleanHabit, Habit } from '../models/habit'
 import { getInitialDurationRanges } from './duration-defaults'
 
 /** Real starting configuration; results are only created by the user's actions. */
@@ -121,8 +121,7 @@ export function createInitialHabits(now: string = new Date().toISOString()): Hab
 export function createStageTenHabits(now: string): Habit[] {
   const shared = { createdAt: now, updatedAt: now, archivedAt: null }
   return [
-    { ...shared, id: 'no-sweets', category: 'food_water', type: 'boolean', name: 'Без сладкого и шоколада',
-      description: 'День без сладкого и шоколада', order: 11 },
+    createSweetsHabit(now),
     { ...shared, id: 'push-ups', category: 'training', type: 'amount', name: 'Отжимания',
       description: 'Фактическое число повторений за день', unit: 'reps', target: 100, quickActions: [10], manualMode: 'total', order: 12 },
     { ...shared, id: 'abs', category: 'training', type: 'amount', name: 'Пресс',
@@ -137,6 +136,13 @@ export function createStageTenHabits(now: string): Habit[] {
       description: 'Отметить факт тренировки самостоятельно', order: 17 },
     ...createStageTenAdditionalHabits(now),
   ]
+}
+
+/** One stable identity shared with existing Stage 10 histories. */
+export function createSweetsHabit(now: string): BooleanHabit {
+  return { id: 'no-sweets', category: 'food_water', type: 'boolean', name: 'Без сладкого / шоколада',
+    description: 'День без сладкого и шоколада', order: 11,
+    createdAt: now, updatedAt: now, archivedAt: null }
 }
 
 /** Supplementary definitions are separate so an already migrated v5 keeps its settings. */

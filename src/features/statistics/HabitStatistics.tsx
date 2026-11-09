@@ -1,12 +1,14 @@
 import { Card } from '@/components/ui/card'
 import type { StatisticsDashboard } from '@/services/statistics/statistics-service'
+import { getHabitCategory, type HabitCategory } from '@/models/habit-category'
 import { formatRate } from './format-statistics'
 
-export function HabitStatistics({ data }: { data: StatisticsDashboard }) {
-  const habits = data.booleans.filter((item) => !['no-alcohol', 'breakfast', 'lunch', 'dinner'].includes(item.habit.id))
+export function HabitStatistics({ data, category, title = 'Привычки' }: { data: StatisticsDashboard; category?: HabitCategory; title?: string }) {
+  const habits = data.booleans.filter((item) => !['no-alcohol', 'breakfast', 'lunch', 'dinner'].includes(item.habit.id)
+    && (!category || getHabitCategory(item.habit) === category))
   return <section className="statistics-section" aria-labelledby="boolean-statistics-heading">
-    <h2 id="boolean-statistics-heading">Привычки</h2>
-    <p className="week-explanation">Доля успехов = успехи / (успехи + неудачи). «Нет данных» не считается неудачей. Серии ограничены выбранным периодом; текущая заканчивается его последним днём.</p>
+    <h2 id="boolean-statistics-heading">{title}</h2>
+    <details className="statistics-table-details"><summary>Как считаются привычки и серии</summary><p className="week-explanation">Доля успехов = успехи / (успехи + неудачи). «Нет данных» не считается неудачей. Серии ограничены выбранным периодом; текущая заканчивается его последним днём. Дни до создания и после архивации исключены из пропусков; сохранённые записи остаются в расчётах.</p></details>
     {habits.length === 0 && <p className="statistics-empty">В этом периоде ещё не было других ежедневных привычек.</p>}
     <div className="boolean-statistics-grid">{habits.map((item) => <Card key={item.habit.id} className="statistics-habit-card" data-boolean-statistics-id={item.habit.id}>
       <div className="statistics-habit-title"><h3>{item.habit.name}</h3>{item.habit.archivedAt && <span className="statistics-badge">Архив</span>}</div>
@@ -21,6 +23,5 @@ export function HabitStatistics({ data }: { data: StatisticsDashboard }) {
         <div><dt>Лучшая серия</dt><dd data-statistic="best-streak">{item.bestStreak} дн.</dd></div>
       </dl>
     </Card>)}</div>
-    <p className="week-explanation">Дни до создания и после архивации исключены из пропусков. Сохранённые записи, в том числе внесённые задним числом, остаются в расчётах.</p>
   </section>
 }

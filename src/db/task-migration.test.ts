@@ -99,7 +99,7 @@ describe('task store migration from IndexedDB v2 through the current schema', ()
 
     const current = await openCurrentDatabase(legacy.name)
 
-    expect(current.verno).toBe(6)
+    expect(current.verno).toBe(7)
     expect(current.tables.map((table) => table.name).sort()).toEqual(['goalMilestones', 'goals', 'habitEntries', 'habits', 'tasks'])
     expect(await current.habits.toArray()).toStrictEqual(originalHabits)
     expect(await current.habitEntries.toArray()).toStrictEqual(originalEntries)
@@ -131,7 +131,7 @@ describe('task store migration from IndexedDB v2 through the current schema', ()
 
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const reopened = await openCurrentDatabase(legacy.name)
-      expect(reopened.verno).toBe(6)
+      expect(reopened.verno).toBe(7)
       expect(await reopened.tasks.toArray()).toStrictEqual([completed])
       expect(await reopened.tasks.where('date').equals(thirdDay).toArray()).toStrictEqual([completed])
       expect(await reopened.tasks.where('status').equals('completed').toArray()).toStrictEqual([completed])

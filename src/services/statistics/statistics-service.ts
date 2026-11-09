@@ -10,11 +10,12 @@ import { calculateDurationStatistics } from './duration-statistics'
 import { calculateTaskStatistics } from './task-statistics'
 import { calculateGoalStatistics } from './goal-statistics'
 import { getStatisticsPeriod, getWeekPeriods, type StatisticsPeriod } from './period-utils'
-import { calculateDayScore, calculateWeeklyScore } from './day-score'
+import { calculateDayScores, calculateWeeklyScore } from './day-score'
 import { readFirstRecordedDates } from './day-score-service'
 import { getWeekStart, isWeeklyHabit } from '../habit-schedule'
 import { calculateWeeklyHabitStatistics } from './weekly-habit-statistics'
 import { calculateFoodStatistics } from './food-statistics'
+import { calculateDashboardSummary } from './dashboard-summary'
 
 export interface StatisticsSource {
   habits: Habit[]
@@ -73,9 +74,16 @@ export function calculateStatistics(source: StatisticsSource, period: Statistics
       socialAverage: results.durations.find((item) => item.habit.id === 'social-media')?.averageMinutes ?? null,
     }
   })
-  const dayScore = calculateDayScore(habits, source.entries, period.endDate, source.firstRecordedDates)
-  const weeklyScore = calculateWeeklyScore(habits, source.entries, period.endDate, source.firstRecordedDates, period.today)
-  return { period, ...habitStatistics, tasks, goals, weekly, dayScore, weeklyScore, weeklyHabits, food,
+  const weekStart = getWeekStart(period.endDate)
+  const scorePeriod = weekStart < period.startDate
+    ? getStatisticsPeriod('custom', period.today, { startDate: weekStart, endDate: period.endDate }) : period
+  const scoreDays = calculateDayScores(habits, source.entries, scorePeriod, source.firstRecordedDates)
+  const dayScore = scoreDays.at(-1)!
+  const weeklyScore = calculateWeeklyScore(habits, source.entries, period.endDate, source.firstRecordedDates, period.today,
+    scoreDays.filter((day) => day.date >= weekStart))
+  const dashboard = calculateDashboardSummary({ period, days: scoreDays.filter((day) => day.date >= period.startDate),
+    weeklyScore, ...habitStatistics, food })
+  return { period, ...habitStatistics, tasks, goals, weekly, dayScore, weeklyScore, weeklyHabits, food, dashboard,
     hasPeriodData: habitStatistics.markedCount > 0
       || weeklyHabits.some((item) => item.weeks.some((week) => week.entry !== undefined && week.status !== 'no-data'))
       || habitStatistics.amounts.some((item) => item.daysWithData > 0)

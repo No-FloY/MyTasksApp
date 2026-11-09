@@ -1,3 +1,4 @@
+import { selectStatisticsSection } from './statistics-navigation'
 import { readFile } from 'node:fs/promises'
 import { expect, test, type Page } from '@playwright/test'
 import { createInitialHabits } from '../src/db/seed'
@@ -25,8 +26,7 @@ function oldBackupData(includeStageTen = false) {
   }) }
 }
 
-async function seedOldDatabase(page: Page, version = 40) {
-  const data = oldBackupData(version === 50)
+async function seedOldDatabase(page: Page, version = 40, data: ReturnType<typeof oldBackupData> | ReturnType<typeof fixture> = oldBackupData(version === 50)) {
   await page.route('**/training-migration-setup', (route) => route.fulfill({ contentType: 'text/html', body: '<!doctype html><link rel="icon" href="data:,"><p>Migration setup</p>' }))
   await page.goto('/training-migration-setup')
   await page.evaluate(({ data, version }) => new Promise<void>((resolve, reject) => {
@@ -56,13 +56,42 @@ async function seedOldDatabase(page: Page, version = 40) {
 
 test.beforeEach(async ({ page }) => { await page.clock.setFixedTime(instant) })
 
+for (const existing of [false, true]) test(`upgrades schema-v6 with ${existing ? 'a customized sweets habit' : 'the sweets habit missing'} without duplicates or loss`, async ({ page }) => {
+  const source = fixture()
+  if (existing) {
+    source.habits = source.habits.map((habit) => habit.id === 'no-sweets' ? {
+      ...habit, name: 'Мой десерт', description: 'Личная настройка', order: 73,
+      category: 'self_development', archivedAt: '2026-10-22T10:00:00.000Z',
+    } : habit)
+    source.habitEntries.push({ habitId: 'no-sweets', type: 'boolean', date: '2026-10-21' as typeof source.habitEntries[number]['date'],
+      status: 'failure', note: 'Старая заметка', createdAt: created, updatedAt: created })
+  } else source.habits = source.habits.filter((habit) => habit.id !== 'no-sweets')
+  await seedOldDatabase(page, 60, source)
+  await page.goto('/#today')
+  await expect(page.locator('[data-amount-habit-id="water"]')).toBeVisible()
+  const after = await readDatabase(page)
+  expect(after.habits).toHaveLength(23)
+  expect(after.habits.filter((habit) => habit.id === 'no-sweets')).toHaveLength(1)
+  if (existing) expect(after.habits.find((habit) => habit.id === 'no-sweets')).toEqual(source.habits.find((habit) => habit.id === 'no-sweets'))
+  else {
+    expect(after.habits.find((habit) => habit.id === 'no-sweets')).toMatchObject({ name: 'Без сладкого / шоколада', category: 'food_water', type: 'boolean' })
+    await expect(page.locator('[data-habit-id="no-sweets"]')).toContainText('Без сладкого / шоколада')
+  }
+  for (const name of ['habitEntries', 'tasks', 'goals', 'goalMilestones'] as const) {
+    expect(after[name]).toEqual(expect.arrayContaining(source[name]))
+    expect(after[name]).toHaveLength(source[name].length)
+  }
+  await page.reload()
+  expect(await readDatabase(page)).toEqual(after)
+})
+
 for (const version of [40, 50]) test(`upgrades a real schema-v${version / 10} database without losing renamed/archived habits, records or task-goal links`, async ({ page }) => {
   const before = await seedOldDatabase(page, version)
   await page.goto('/#today')
   await expect(page.locator('[data-amount-habit-id="push-ups"]')).toBeVisible()
   const after = await readDatabase(page)
   expect(after.habits).toHaveLength(23)
-  for (const habit of before.habits) expect(after.habits.find((item) => item.id === habit.id)).toMatchObject(habit)
+  for (const habit of before.habits) expect(after.habits.find((item) => item.id === habit.id)).toMatchObject({ ...habit })
   expect(after.habits.find((habit) => habit.id === 'water')).toMatchObject({ name: 'Моя вода', target: 2700, category: 'food_water', quickActions: [200, 400], manualMode: 'add' })
   expect(after.habits.find((habit) => habit.id === 'english')).toMatchObject({ name: 'Мой английский', category: 'self_development', archivedAt: '2026-10-22T10:00:00.000Z' })
   expect(after.habitEntries).toEqual(before.habitEntries.sort((a, b) => a.habitId.localeCompare(b.habitId) || a.date.localeCompare(b.date)))
@@ -102,7 +131,7 @@ test('records categorized training, computes transparent scores, edits history/s
   }
   const boolean = (id: string) => page.locator(`[data-habit-id="${id}"]`)
   const amount = (id: string) => page.locator(`[data-amount-habit-id="${id}"]`)
-  await boolean('no-sweets').getByRole('button', { name: 'Неудача', exact: true }).click()
+  await boolean('no-sweets').getByRole('button', { name: 'Ел', exact: true }).click()
   await boolean('no-chips').getByRole('button', { name: 'Успех', exact: true }).click()
   await boolean('breakfast').getByRole('button', { name: 'Был', exact: true }).click()
   await boolean('lunch').getByRole('button', { name: 'Не было', exact: true }).click()
@@ -127,7 +156,8 @@ test('records categorized training, computes transparent scores, edits history/s
   await page.reload()
   expect(await readDatabase(page)).toEqual(before)
   await page.goto('/#statistics')
-  await expect(page.getByTestId('weekly-score')).toContainText('61')
+  await expect(page.getByTestId('dashboard-score')).toContainText('61')
+  await selectStatisticsSection(page, 'Тренировка')
   const pushups = page.locator('[data-amount-statistics-id="push-ups"]')
   await expect(pushups.locator('[data-statistic="total"]')).toHaveText('130')
   await expect(pushups.locator('[data-statistic="successful"]')).toContainText('1 / 1')

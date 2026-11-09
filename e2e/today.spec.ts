@@ -11,7 +11,7 @@ const booleanNames = [
   'Без газировок и соков',
   'Без энергетиков',
   'Без фастфуда',
-  'Без сладкого и шоколада',
+  'Без сладкого / шоколада',
   'Пройти 10 км',
   'Тренировка',
   'Без алкоголя',
@@ -190,7 +190,7 @@ test('keeps all six navigation items usable on a narrow screen without horizonta
     await navigation.getByRole('link', { name, exact: true }).click()
     await expect(page.getByRole('heading', { name, exact: true, level: 1 })).toBeVisible()
     if (name === 'Статистика') {
-      await expect(page.locator('[data-duration-statistics-id="gaming"]')).toBeVisible()
+      await expect(page.getByRole('tab', { name: 'Обзор', exact: true })).toHaveAttribute('aria-selected', 'true')
     } else if (name === 'Календарь') {
       await expect(page.getByTestId('calendar-month')).toBeVisible()
       await expect(page.locator('[data-calendar-date][aria-current="date"]')).toBeVisible()
