@@ -49,7 +49,7 @@ export function RestoreBackupDialog({ snapshot, filename, onClose, onRestored, o
     <dialog ref={dialogRef} className="task-dialog task-confirm-dialog settings-dialog" aria-labelledby={`${id}-heading`} aria-describedby={`${id}-description`} onCancel={(event) => { event.preventDefault(); if (!pendingRef.current) close() }}>
       <header className="task-dialog-heading">
         <h2 id={`${id}-heading`}>Заменить текущие данные?</h2>
-        <p id={`${id}-description`}>Все текущие локальные данные будут заменены данными из файла «{filename}». Изменения, сделанные после создания этой копии, будут потеряны. Отменить замену можно только восстановлением другой резервной копии.</p>
+        <p id={`${id}-description`}>Все текущие локальные данные будут заменены данными из файла «{filename}». Недостающие системные привычки будут добавлены без прошлых отметок; сохранённые в файле настройки и архив останутся. Изменения, сделанные после создания этой копии, будут потеряны. Отменить замену можно только восстановлением другой резервной копии.</p>
         {pending && <p role="status">Восстанавливаем данные… Дождитесь завершения.</p>}
         {error && <p className="task-error" role="alert">{error}</p>}
       </header>

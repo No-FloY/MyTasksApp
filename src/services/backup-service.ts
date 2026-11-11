@@ -1,4 +1,5 @@
 import { db, type TaskTrackerDatabase } from '../db/database'
+import { ensureCurrentSystemData } from '../db/system-data'
 import { getLocalDate } from '../lib/local-date'
 import { BACKUP_FORMAT_VERSION, type BackupSnapshot } from '../models/backup'
 import { validateBackupSnapshot } from './backup-validation'
@@ -51,6 +52,9 @@ export class BackupService {
       await tasks.bulkAdd(data.tasks)
       await goals.bulkAdd(data.goals)
       await goalMilestones.bulkAdd(data.goalMilestones)
+      // Import restores user facts, then brings system configuration up to date.
+      // Sharing this transaction also rolls back replacement if backfill fails.
+      await ensureCurrentSystemData(habits)
     })
   }
 }

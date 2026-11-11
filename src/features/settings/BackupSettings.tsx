@@ -107,7 +107,7 @@ export function BackupSettings({ disabled, onBusyChange }: BackupSettingsProps) 
           <div><dt>Целей</dt><dd>{preview.snapshot.data.goals.length}</dd></div>
           <div><dt>Этапов целей</dt><dd>{preview.snapshot.data.goalMilestones.length}</dd></div>
         </dl>
-        <p className="settings-notice">При восстановлении текущие локальные данные будут полностью заменены. Сначала можно скачать копию текущих данных.</p>
+        <p className="settings-notice">При восстановлении текущие локальные данные будут заменены данными из файла. Недостающие системные привычки будут добавлены без прошлых отметок. Сначала можно скачать копию текущих данных.</p>
         <div className="settings-backup-actions">
           <Button variant="outline" disabled={busy} onClick={() => { void download() }}><Download aria-hidden="true" />Скачать текущую копию</Button>
           <Button disabled={busy} onClick={() => setConfirming(true)}>Продолжить импорт</Button>

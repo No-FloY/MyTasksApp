@@ -78,7 +78,7 @@ describe('duration configuration migration from IndexedDB v1 to v2', () => {
     const originalWater = await legacy.habits.get('water')
     const current = await upgrade(legacy)
 
-    expect(current.verno).toBe(7)
+    expect(current.verno).toBe(8)
     expect(await current.habits.count()).toBe(23)
     expect(await current.habitEntries.count()).toBe(entries.length)
     expect(await current.habits.get('gaming')).toEqual({
@@ -95,7 +95,7 @@ describe('duration configuration migration from IndexedDB v1 to v2', () => {
     expect(rows[1]).toMatchObject({ minutes: 0, rating: { id: 'excellent' } })
   })
 
-  it('does not reseed deleted habits or remove archived history during upgrade', async () => {
+  it('restores missing system definitions at the current upgrade without removing archived history', async () => {
     const legacy = await createLegacyDatabase()
     await legacy.habits.delete('social-media')
     await legacy.habits.delete('reading')
@@ -107,14 +107,15 @@ describe('duration configuration migration from IndexedDB v1 to v2', () => {
     await legacy.habitEntries.put(historicalEntry)
     const current = await upgrade(legacy)
 
-    expect(await current.habits.count()).toBe(21)
-    expect(await current.habits.get('social-media')).toBeUndefined()
-    expect(await current.habits.get('reading')).toBeUndefined()
+    expect(await current.habits.count()).toBe(23)
+    expect(await current.habits.get('social-media')).toMatchObject({ ratingRanges: getInitialDurationRanges('social-media') })
+    expect(await current.habits.get('reading')).toBeDefined()
+    expect(await current.habitEntries.where('habitId').anyOf('social-media', 'reading').count()).toBe(0)
     expect(await current.habits.get('gaming')).toMatchObject({
       archivedAt: timestamp, ratingRanges: getInitialDurationRanges('gaming'),
     })
     expect(await current.habitEntries.get(['gaming', yesterday])).toEqual(historicalEntry)
-    expect(await new DurationService(current).getTodayDurationHabits(yesterday)).toEqual([])
+    expect((await new DurationService(current).getTodayDurationHabits(yesterday)).every((item) => item.habit.id !== 'gaming')).toBe(true)
   })
 
   it('keeps existing user configuration instead of replacing it with the new defaults', async () => {

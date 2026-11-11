@@ -686,8 +686,8 @@ Dashboard сохраняет таблицы, библиотеку графико
 
 Дополнения пользователя к текущему этапу (в работе):
 
-- [ ] Atomic import с общим ensureCurrentSystemData; восстановление актуальных системных Habit из старого backup
-- [ ] Сохранность имён/архива/настроек/истории, отсутствие дубликатов и rollback backfill
+- [x] Atomic import с общим ensureCurrentSystemData; восстановление актуальных системных Habit из старого backup
+- [x] Сохранность имён/архива/настроек/истории, отсутствие дубликатов и rollback backfill
 - [ ] MissingDataPolicy: manual / assume_not_done / assume_not_occurred, вычисляемые результаты завершённых локальных дней
 - [ ] Явные записи, включая no-data, имеют приоритет; до создания Habit и в текущий день предположения не применяются
 - [ ] Settings и backup для policy; единая семантика Today/Calendar/Statistics/coverage

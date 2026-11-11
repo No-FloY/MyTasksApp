@@ -99,9 +99,10 @@ describe('task store migration from IndexedDB v2 through the current schema', ()
 
     const current = await openCurrentDatabase(legacy.name)
 
-    expect(current.verno).toBe(7)
+    expect(current.verno).toBe(8)
     expect(current.tables.map((table) => table.name).sort()).toEqual(['goalMilestones', 'goals', 'habitEntries', 'habits', 'tasks'])
-    expect(await current.habits.toArray()).toStrictEqual(originalHabits)
+    expect((await current.habits.toArray()).filter((habit) => originalHabits.some((original) => original.id === habit.id))).toStrictEqual(originalHabits)
+    expect(await current.habits.count()).toBe(originalHabits.length + 2)
     expect(await current.habitEntries.toArray()).toStrictEqual(originalEntries)
     expect(current.habits.schema).toStrictEqual(originalHabitSchema)
     expect(current.habitEntries.schema).toStrictEqual(originalEntrySchema)
@@ -115,12 +116,14 @@ describe('task store migration from IndexedDB v2 through the current schema', ()
       ])
   })
 
-  it('persists a task across repeated reopening without reseeding deleted habits or changing history', async () => {
+  it('persists a task and completed system definitions across reopening without changing history', async () => {
     const legacy = await createVersionTwoDatabase()
     const originalHabits = await legacy.habits.toArray()
     const originalEntries = await legacy.habitEntries.toArray()
     legacy.close()
     const migrated = await openCurrentDatabase(legacy.name)
+    const migratedHabits = await migrated.habits.toArray()
+    expect(migratedHabits.filter((habit) => originalHabits.some((original) => original.id === habit.id))).toStrictEqual(originalHabits)
     const service = new TaskService(migrated)
     const task = await service.createTask({
       title: 'После обновления', description: 'Данные остались на месте',
@@ -131,14 +134,14 @@ describe('task store migration from IndexedDB v2 through the current schema', ()
 
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const reopened = await openCurrentDatabase(legacy.name)
-      expect(reopened.verno).toBe(7)
+      expect(reopened.verno).toBe(8)
       expect(await reopened.tasks.toArray()).toStrictEqual([completed])
       expect(await reopened.tasks.where('date').equals(thirdDay).toArray()).toStrictEqual([completed])
       expect(await reopened.tasks.where('status').equals('completed').toArray()).toStrictEqual([completed])
-      expect(await reopened.habits.toArray()).toStrictEqual(originalHabits)
+      expect(await reopened.habits.toArray()).toStrictEqual(migratedHabits)
       expect(await reopened.habitEntries.toArray()).toStrictEqual(originalEntries)
-      expect(await reopened.habits.get('reading')).toBeUndefined()
-      expect(await reopened.habits.get('social-media')).toBeUndefined()
+      expect(await reopened.habits.get('reading')).toBeDefined()
+      expect(await reopened.habits.get('social-media')).toBeDefined()
       reopened.close()
     }
   })

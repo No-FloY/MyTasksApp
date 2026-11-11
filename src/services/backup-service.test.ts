@@ -363,7 +363,7 @@ describe('backup export and atomic replacement', () => {
     })
     expect(snapshot.data.habits).toHaveLength(23)
     expect(snapshot.data).toStrictEqual(await readData())
-    expect(database.verno).toBe(7)
+    expect(database.verno).toBe(8)
   })
 
   it('exports a genuinely empty database without adding seed data', async () => {
@@ -419,15 +419,16 @@ describe('backup export and atomic replacement', () => {
     expect(await readData()).toStrictEqual(first)
   })
 
-  it('replaces a populated database with an empty snapshot and does not reseed after reopen', async () => {
+  it('restores empty user data with current system definitions, retaining no historical results', async () => {
     await fillDatabase()
     await service.importBackup(emptyBackup())
     database.close()
     await database.open()
-    expect(await readData()).toStrictEqual(emptyBackup().data)
+    expect(await readData()).toStrictEqual({ ...emptyBackup().data,
+      habits: createInitialHabits().sort((a, b) => a.id.localeCompare(b.id)) })
   })
 
-  it('replaces from version 1 without adding missing old habits or the new definitions after reopening', async () => {
+  it('restores version 1 facts and adds every missing system definition with current metadata', async () => {
     const legacy = versionOneBackup()
     legacy.data.habits = legacy.data.habits.filter((habit) => habit.id !== 'no-chips')
     const converted = parseBackupJson(JSON.stringify(legacy))
@@ -439,20 +440,73 @@ describe('backup export and atomic replacement', () => {
       goals: [...data.goals].sort((a, b) => a.id.localeCompare(b.id)),
       goalMilestones: [...data.goalMilestones].sort((a, b) => a.id.localeCompare(b.id)),
     })
-    expect(sortByKey((await service.exportBackup()).data)).toStrictEqual(sortByKey(converted.data))
+    const expected = { ...converted.data, habits: [...converted.data.habits,
+      ...createInitialHabits().filter((habit) => !converted.data.habits.some((existing) => existing.id === habit.id))] }
+    expect(sortByKey((await service.exportBackup()).data)).toStrictEqual(sortByKey(expected))
     database.close()
     await database.open()
-    expect(await database.habits.count()).toBe(11)
-    expect(await database.habits.get('no-chips')).toBeUndefined()
-    expect(await database.habits.get('push-ups')).toBeUndefined()
-    expect(sortByKey((await service.exportBackup()).data)).toStrictEqual(sortByKey(converted.data))
+    expect(await database.habits.count()).toBe(24)
+    expect(await database.habits.get('no-chips')).toMatchObject({ category: 'food_water', createdAt: new Date().toISOString() })
+    expect(await database.habits.get('push-ups')).toMatchObject({ category: 'training', target: 100, quickActions: [10], manualMode: 'total', createdAt: new Date().toISOString() })
+    expect(await database.habits.get('cleaning')).toMatchObject({ schedule: { type: 'weekly' }, createdAt: new Date().toISOString() })
+    expect(sortByKey((await service.exportBackup()).data)).toStrictEqual(sortByKey(expected))
   })
 
-  it('imports an empty version 1 backup as an empty database across reopen', async () => {
+  it('imports empty version 1 user data and current system definitions across reopen', async () => {
     await service.importBackup({ ...emptyBackup(), formatVersion: 1 })
     database.close()
     await database.open()
-    expect(await readData()).toStrictEqual(emptyBackup().data)
+    expect(await readData()).toStrictEqual({ ...emptyBackup().data,
+      habits: createInitialHabits().sort((a, b) => a.id.localeCompare(b.id)) })
+  })
+
+  it.each([2, 3] as const)('restores pre-food/weekly version %s and preserves renamed or archived system definitions', async (formatVersion) => {
+    const snapshot = fullBackup()
+    snapshot.data.habits = snapshot.data.habits.filter((habit) => habit.order < 18 || habit.id === 'rating')
+    const renamed = snapshot.data.habits.find((habit) => habit.id === 'push-ups')!
+    Object.assign(renamed, { name: 'Моя практика', description: 'Личный текст', archivedAt: updatedAt, category: 'self_development' })
+    if (renamed.type === 'amount') Object.assign(renamed, { target: 12, quickActions: [3], manualMode: 'add' })
+    const expected = structuredClone(snapshot.data)
+    await service.importBackup({ ...snapshot, formatVersion })
+    const actual = await readData()
+    expect(actual.habits).toHaveLength(24)
+    for (const original of expected.habits) expect(await database.habits.get(original.id)).toStrictEqual(original)
+    for (const table of ['habitEntries', 'tasks', 'goals', 'goalMilestones'] as const) {
+      expect(actual[table]).toHaveLength(expected[table].length)
+    }
+    expect(actual.habitEntries).toEqual(expect.arrayContaining(expected.habitEntries))
+    expect(actual.tasks).toEqual(expect.arrayContaining(expected.tasks))
+    expect(actual.goals).toEqual(expect.arrayContaining(expected.goals))
+    expect(actual.goalMilestones).toEqual(expect.arrayContaining(expected.goalMilestones))
+    expect(await database.habits.get('cleaning')).toMatchObject({ schedule: { type: 'weekly' } })
+    for (const id of ['no-alcohol', 'breakfast', 'lunch', 'dinner']) {
+      expect(await database.habits.get(id)).toMatchObject({ category: 'food_water', createdAt: new Date().toISOString() })
+    }
+    const current = await service.exportBackup()
+    await service.importBackup(JSON.parse(JSON.stringify(current)))
+    expect(await readData()).toStrictEqual(actual)
+  })
+
+  it('rolls back replacement of all five tables if system backfill fails after restored rows were written', async () => {
+    await fillDatabase()
+    const before = await readData()
+    const legacy = versionOneBackup()
+    const hook = (_key: unknown, value: { id: string }) => {
+      if (value.id === 'push-ups') throw new Error('Injected system backfill failure')
+    }
+    database.habits.hook('creating', hook)
+    try {
+      await expect(service.importBackup(legacy)).rejects.toThrow('Injected system backfill failure')
+    } finally {
+      database.habits.hook('creating').unsubscribe(hook)
+    }
+    expect(await readData()).toStrictEqual(before)
+    database.close()
+    await database.open()
+    expect(await readData()).toStrictEqual(before)
+    await service.importBackup(legacy)
+    expect(await database.habits.get('push-ups')).toBeDefined()
+    expect((await readData()).habitEntries).toStrictEqual(before.habitEntries)
   })
 
   it.each([NaN, Infinity, -Infinity])('rejects non-JSON numeric value %s at the import service boundary before clear', async (value) => {

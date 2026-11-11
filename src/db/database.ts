@@ -7,6 +7,7 @@ import type { Goal, GoalMilestone } from '../models/goal'
 import { createInitialHabits, createStageTenAdditionalHabits, createSweetsHabit } from './seed'
 import { getInitialDurationRanges } from './duration-defaults'
 import { backfillHabitDefinitions, type LegacyHabit } from './habit-backfill'
+import { ensureCurrentSystemData } from './system-data'
 
 export class TaskTrackerDatabase extends Dexie {
   habits!: Table<Habit, string>
@@ -95,6 +96,18 @@ export class TaskTrackerDatabase extends Dexie {
       }
     })
 
+    // Repair databases restored from legacy backups while already at schema v7.
+    // Definitions are completed in the upgrade transaction; user history stays intact.
+    this.version(8).stores({
+      habits: 'id, type, order',
+      habitEntries: '[habitId+date], habitId, date, type',
+      tasks: 'id, date, status, goalId',
+      goals: 'id, status, deadline',
+      goalMilestones: 'id, goalId, [goalId+order]',
+    }).upgrade(async (transaction) => {
+      await ensureCurrentSystemData(transaction.table<Habit>('habits'))
+    })
+
     // populate runs once, in the creation transaction. Reopening never resets data.
     this.on('populate', async (transaction) => {
       await transaction.table<Habit>('habits').bulkAdd(createInitialHabits())
@@ -104,9 +117,10 @@ export class TaskTrackerDatabase extends Dexie {
 
 export const db = new TaskTrackerDatabase()
 
-export async function initializeDatabase(): Promise<void> {
+export async function initializeDatabase(database: TaskTrackerDatabase = db): Promise<void> {
   if (typeof globalThis.indexedDB === 'undefined') {
     throw new Error('Этот браузер не поддерживает IndexedDB.')
   }
-  await db.open()
+  await database.open()
+  await database.transaction('rw', database.habits, () => ensureCurrentSystemData(database.habits))
 }

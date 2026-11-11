@@ -75,10 +75,11 @@ describe('goal migration from IndexedDB v3 to v4', () => {
     legacy.close()
     const current = await currentDatabase(legacy.name)
 
-    expect(current.verno).toBe(7)
-    expect(current.backendDB().version).toBe(70)
+    expect(current.verno).toBe(8)
+    expect(current.backendDB().version).toBe(80)
     expect(current.tables.map(({ name }) => name).sort()).toEqual(['goalMilestones', 'goals', 'habitEntries', 'habits', 'tasks'])
-    expect(await current.habits.toArray()).toStrictEqual(habits)
+    expect((await current.habits.toArray()).filter((habit) => habit.id !== 'reading')).toStrictEqual(habits)
+    expect(await current.habits.count()).toBe(habits.length + 1)
     expect(await current.habitEntries.toArray()).toStrictEqual(entries)
     expect(await current.tasks.toArray()).toStrictEqual(tasks)
     expect(current.habits.schema).toStrictEqual(habitSchema)
@@ -92,7 +93,7 @@ describe('goal migration from IndexedDB v3 to v4', () => {
     expect(await current.tasks.where('goalId').equals('missing').toArray()).toEqual([])
   })
 
-  it('can link migrated tasks and persist milestones through reopen without reseeding or rewriting history', async () => {
+  it('can link migrated tasks and persist milestones and completed definitions through reopen without rewriting history', async () => {
     const legacy = await legacyDatabase()
     const habits = await legacy.habits.toArray()
     const history = await legacy.habitEntries.toArray()
@@ -112,9 +113,9 @@ describe('goal migration from IndexedDB v3 to v4', () => {
     expect(details).toMatchObject({ goal: { ...goal, updatedAt: expect.any(String) }, milestones: [boolean, amount], tasks: [linked] })
     expect(linked).toMatchObject({ ...task, goalId: goal.id, updatedAt: expect.any(String) })
     expect(await reopened.tasks.get('completed-task')).toStrictEqual(completedTask)
-    expect(await reopened.habits.toArray()).toStrictEqual(habits)
+    expect((await reopened.habits.toArray()).filter((habit) => habit.id !== 'reading')).toStrictEqual(habits)
     expect(await reopened.habitEntries.toArray()).toStrictEqual(history)
-    expect(await reopened.habits.get('reading')).toBeUndefined()
+    expect(await reopened.habits.get('reading')).toBeDefined()
     expect(await reopened.tasks.where('date').equals(day).count()).toBe(2)
     expect(await reopened.tasks.where('status').equals('completed').count()).toBe(1)
     expect(await reopened.tasks.where('goalId').equals(goal.id).toArray()).toEqual([linked])
