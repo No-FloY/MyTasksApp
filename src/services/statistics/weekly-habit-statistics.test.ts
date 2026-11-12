@@ -7,7 +7,7 @@ import { getStatisticsPeriod } from './period-utils'
 
 const timestamp = '2026-09-01T10:00:00.000Z'
 const cleaning: BooleanHabit = { id: 'cleaning', name: 'Уборка', description: '', order: 0, category: 'routine',
-  type: 'boolean', schedule: { type: 'weekly' }, createdAt: timestamp, updatedAt: timestamp, archivedAt: null }
+  type: 'boolean', schedule: { type: 'weekly' }, missingDataPolicy: 'assume_not_done', createdAt: timestamp, updatedAt: timestamp, archivedAt: null }
 function date(value: string): LocalDate {
   if (!isLocalDate(value)) throw new Error('Invalid fixture date')
   return value
@@ -69,7 +69,8 @@ describe('weekly habit statistics', () => {
   it('uses earlier backdated keys to establish tracked weeks but preserves archived explicit history', () => {
     const range = period('2026-10-19', '2026-10-25')
     const laterCreated = { ...cleaning, createdAt: '2026-10-28T10:00:00.000Z' }
-    expect(calculateWeeklyHabitStatistics(laterCreated, [], range, date('2026-10-05')).failureCount).toBe(1)
+    // Earlier explicit history can establish tracked dates, but never inference before creation.
+    expect(calculateWeeklyHabitStatistics(laterCreated, [], range, date('2026-10-05'))).toMatchObject({ failureCount: 0, noDataCount: 1 })
     expect(calculateWeeklyHabitStatistics({ ...cleaning, archivedAt: '2026-10-10T10:00:00.000Z' },
       [mark('2026-10-19', 'success')], range)).toMatchObject({ eligibleWeeks: 1, successCount: 1 })
   })

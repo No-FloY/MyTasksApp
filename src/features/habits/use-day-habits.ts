@@ -2,6 +2,7 @@ import { liveQuery, type Subscription } from 'dexie'
 import { useEffect, useRef, useState } from 'react'
 import { initializeDatabase } from '@/db/database'
 import { getLocalDate, type LocalDate } from '@/lib/local-date'
+import { useLocalDate } from '@/hooks/use-local-date'
 import type { BooleanHabitStatus } from '@/models/habit-entry'
 import {
   getDurationInput, getTodayDurationHabits, parseDurationInput, setHabitDuration,
@@ -36,6 +37,7 @@ interface SaveState {
 }
 
 export function useDayHabits(date: LocalDate, mode: 'today' | 'calendar') {
+  const today = useLocalDate()
   const [attempt, setAttempt] = useState(0)
   const [readState, setReadState] = useState<ReadState | null>(null)
   const [saveStates, setSaveStates] = useState<Record<string, SaveState>>({})
@@ -71,7 +73,7 @@ export function useDayHabits(date: LocalDate, mode: 'today' | 'calendar') {
       active = false
       subscription?.unsubscribe()
     }
-  }, [date, attempt])
+  }, [date, attempt, today])
 
   function persist(
     habitId: string,

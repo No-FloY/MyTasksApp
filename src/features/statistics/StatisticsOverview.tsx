@@ -46,6 +46,7 @@ export function StatisticsOverview({ data }: { data: StatisticsDashboard }) {
           {!isDay && dashboard.bestDay && <div><dt>Лучший день</dt><dd>{formatStatisticsDate(dashboard.bestDay.date, includeYear)} · {formatRate(dashboard.bestDay.score)}</dd></div>}
           {!isDay && dashboard.worstDay && <div><dt>Самая низкая оценка</dt><dd>{formatStatisticsDate(dashboard.worstDay.date, includeYear)} · {formatRate(dashboard.worstDay.score)}</dd></div>}
           <div><dt>{isDay ? 'Алкоголь' : 'Дни с алкоголем'}</dt><dd>{dashboard.food.alcoholRecordedDays === 0 ? 'Нет данных' : isDay ? dashboard.food.alcoholDays ? 'Был' : 'Не было' : `${dashboard.food.alcoholDays} дн.`}</dd></div>
+          {data.coffee && <div data-testid="dashboard-coffee"><dt>Кофе · пил</dt><dd>{data.coffee.filledDays === 0 ? 'Нет данных' : `${data.coffee.drankDays} дн. из ${data.coffee.eligibleDays}`}</dd></div>}
           <div><dt>{isDay ? 'Три приёма пищи' : 'Полное питание'}</dt><dd>{dashboard.food.fullMealRecordedDays === 0 ? 'Нет данных' : isDay ? dashboard.food.fullMealDays ? 'Да' : 'Нет' : `${dashboard.food.fullMealDays} дн.`}</dd></div>
           <div><dt>{isDay ? 'Цель воды' : 'Дни с целью воды'}</dt><dd>{dashboard.food.waterRecordedDays === 0 ? 'Нет данных' : isDay ? dashboard.food.waterSuccessDays ? 'Достигнута' : 'Ниже цели' : `${dashboard.food.waterSuccessDays} дн.`}</dd></div>
           {cleaning && <div data-testid="dashboard-cleaning"><dt>Уборка{period.preset === 'week' || isDay ? ' · неделя' : ''}</dt><dd>{period.preset === 'week' || isDay ? cleaningWeek?.status === 'success' ? 'Выполнена' : cleaningWeek?.status === 'failure' ? 'Не выполнена' : 'Нет данных' : `${cleaning.successCount} / ${cleaning.eligibleWeeks} нед.`}</dd></div>}
@@ -57,12 +58,12 @@ export function StatisticsOverview({ data }: { data: StatisticsDashboard }) {
       <div className="dashboard-panel-heading"><h2>Ритм периода</h2><span>Оценка по дням</span></div>
       <StatisticsChart data={dashboard.days.map((day) => ({ date: day.date, value: day.score }))} label="Оценка дня в выбранном периоде" unit="%" percent includeYear={includeYear} />
       <details className="statistics-table-details"><summary>Дневные оценки и заполненность</summary><div className="statistics-table-scroll">
-        <table className="statistics-week-table"><caption>Оценки по сохранённым отметкам. Пропуски не равны нулю.</caption><thead><tr><th scope="col">Дата</th><th scope="col">Оценка</th><th scope="col">Заполнено</th></tr></thead>
+        <table className="statistics-week-table"><caption>Оценки по отметкам и правилам завершённых дней. «Нет данных» не равно нулю.</caption><thead><tr><th scope="col">Дата</th><th scope="col">Оценка</th><th scope="col">Заполнено</th></tr></thead>
           <tbody>{dashboard.days.map((day) => <tr key={day.date}><th scope="row">{formatStatisticsDate(day.date, includeYear)}</th><td>{formatRate(day.score)}</td><td>{formatRate(day.coverage)}</td></tr>)}</tbody>
         </table></div></details>
     </Card>}
     <details className="statistics-table-details dashboard-method"><summary>Как читать оценку</summary>
-      <p className="week-explanation">Дневная оценка — среднее категорий с данными; пропуски не считаются неудачей. Заполненность показывает, какая часть ожидаемых отметок сохранена. Для средней оценки периода используются дни с заполненностью от 50%. В режиме «Неделя» недельные цели учитываются один раз внутри своей категории. Задачи входят по сроку, их результат и состояние целей показаны на текущий момент.</p>
+      <p className="week-explanation">Дневная оценка — среднее категорий с данными. Заполненность учитывает явные отметки и результаты по правилу завершённого дня. «Нет данных» исключено; кофе не влияет ни на оценку, ни на заполненность. Для средней оценки периода используются дни с заполненностью от 50%. В режиме «Неделя» недельные цели учитываются один раз внутри своей категории. Задачи входят по сроку, их результат и состояние целей показаны на текущий момент.</p>
     </details>
     {data.weekly.length > 0 && <details className="statistics-table-details dashboard-history" onToggle={(event) => setShowWeeklyHistory(event.currentTarget.open)}><summary>Подробная динамика по неделям</summary>{showWeeklyHistory && <WeeklyStatistics weeks={data.weekly} />}</details>}
   </>

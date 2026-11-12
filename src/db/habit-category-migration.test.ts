@@ -9,7 +9,7 @@ import type { Task } from '../models/task'
 import { HABIT_CATEGORIES } from '../models/habit-category'
 import { TaskTrackerDatabase } from './database'
 import { backfillHabitDefinitions, enrichLegacyHabit, type LegacyHabit } from './habit-backfill'
-import { createInitialHabits, createStageTenHabits } from './seed'
+import { createInitialHabits, createStageTenHabits, withDefaultHabitPolicy } from './seed'
 
 const createdAt = '2026-09-01T10:00:00.000Z'
 const updatedAt = '2026-10-01T10:00:00.000Z'
@@ -112,7 +112,7 @@ describe('category definitions and stage 10 backfill', () => {
   })
 })
 
-describe('real legacy schema upgrade to schema v6', () => {
+describe('real legacy schema upgrade through the current schema', () => {
   it.each([1, 2, 3, 4])('upgrades v%s old shapes, preserves history and adds only missing definitions', async (version) => {
     const legacy = track(new OldDatabase(`category-upgrade-${crypto.randomUUID()}`, version))
     await legacy.open()
@@ -144,11 +144,11 @@ describe('real legacy schema upgrade to schema v6', () => {
 
     const current = track(new TaskTrackerDatabase(legacy.name))
     await current.open()
-    expect(current.verno).toBe(8)
-    expect(current.backendDB().version).toBe(80)
+    expect(current.verno).toBe(9)
+    expect(current.backendDB().version).toBe(90)
     expect(current.tables.map((table) => table.name).sort()).toEqual(['goalMilestones', 'goals', 'habitEntries', 'habits', 'tasks'])
     expect(current.habits.schema).toStrictEqual(schema)
-    expect(await current.habits.count()).toBe(23)
+    expect(await current.habits.count()).toBe(24)
     expect(await current.habits.get('reading')).toMatchObject({ createdAt: migrationTime, category: 'self_development' })
     for (const [name, rows] of otherRows) expect(await current.table(name).toArray()).toStrictEqual(rows)
     for (const original of definitions) {
@@ -156,7 +156,7 @@ describe('real legacy schema upgrade to schema v6', () => {
       expect(actual).toMatchObject(original)
       expect(actual?.category).toBeDefined()
     }
-    for (const definition of createStageTenHabits(migrationTime)) expect(await current.habits.get(definition.id)).toStrictEqual(definition)
+    for (const definition of createStageTenHabits(migrationTime)) expect(await current.habits.get(definition.id)).toStrictEqual(withDefaultHabitPolicy(definition))
     expect(await current.habits.get('gaming')).toMatchObject({ ratingRanges: [{ id: 'mine', label: 'Моя оценка', emoji: '🙂', minMinutes: 0, maxMinutes: null }] })
     expect(await current.habits.get('social-media')).toHaveProperty('ratingRanges')
     const migrated = await current.habits.toArray()
@@ -189,8 +189,8 @@ describe('real legacy schema upgrade to schema v6', () => {
     unchanged.close()
     const retry = track(new TaskTrackerDatabase(legacy.name))
     await retry.open()
-    expect(await retry.habits.count()).toBe(23)
-    expect(retry.backendDB().version).toBe(80)
+    expect(await retry.habits.count()).toBe(24)
+    expect(retry.backendDB().version).toBe(90)
   })
 
   it('adds the supplement to an existing v5 without changing definitions, weekly settings or history', async () => {
@@ -213,8 +213,8 @@ describe('real legacy schema upgrade to schema v6', () => {
 
     const current = track(new TaskTrackerDatabase(legacy.name))
     await current.open()
-    expect(current.verno).toBe(8)
-    expect(await current.habits.count()).toBe(23)
+    expect(current.verno).toBe(9)
+    expect(await current.habits.count()).toBe(24)
     for (const original of definitions) expect(await current.habits.get(original.id)).toStrictEqual(original)
     expect(await current.habitEntries.orderBy('[habitId+date]').toArray()).toStrictEqual(entries)
     expect(await current.habits.get('cleaning')).toMatchObject({ schedule: { type: 'weekly' }, category: 'routine' })

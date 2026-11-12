@@ -12,6 +12,7 @@ const typeLabels: Record<Habit['type'], string> = {
 function formatEntry(habit: Habit, entry: HabitEntry): string {
   switch (entry.type) {
     case 'boolean':
+      if (habit.id === 'coffee') return { success: 'Пил', failure: 'Не пил', 'no-data': 'Нет данных' }[entry.status]
       return { success: 'Успех', failure: 'Неудача', 'no-data': 'Нет данных' }[entry.status]
     case 'amount':
       return `${entry.value.toLocaleString('ru-RU')}${habit.type === 'amount' ? ` ${habit.unit === 'ml' ? 'мл' : habit.unit}` : ''}`

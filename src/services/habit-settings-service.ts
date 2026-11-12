@@ -1,6 +1,7 @@
 import { db, type TaskTrackerDatabase } from '../db/database'
 import type { DurationRatingRange } from '../models/duration-rating'
 import type { Habit } from '../models/habit'
+import { MISSING_DATA_POLICIES, type MissingDataPolicy } from '../models/habit-policy'
 import { isHabitCategory, type HabitCategory } from '../models/habit-category'
 import { validateRatingRanges } from './duration-service'
 
@@ -13,6 +14,7 @@ interface HabitSettingsBase {
   name: string
   description: string
   category?: HabitCategory
+  missingDataPolicy?: MissingDataPolicy
 }
 
 export type HabitSettingsInput =
@@ -56,9 +58,15 @@ function normalizeInput(input: HabitSettingsInput): HabitSettingsInput {
   if (input.category !== undefined && !isHabitCategory(input.category)) {
     throw new Error('Выберите существующую категорию привычки.')
   }
+  if (input.missingDataPolicy !== undefined && (!MISSING_DATA_POLICIES.includes(input.missingDataPolicy)
+    || (input.type === 'duration' || input.type === 'rating') && input.missingDataPolicy !== 'manual'
+    || input.type === 'amount' && input.missingDataPolicy === 'assume_not_occurred')) {
+    throw new Error('Выберите подходящее правило для незаполненного дня.')
+  }
   const fields = {
     name: input.name.trim(), description: input.description.trim(),
     ...(input.category === undefined ? {} : { category: input.category }),
+    ...(input.missingDataPolicy === undefined ? {} : { missingDataPolicy: input.missingDataPolicy }),
   }
   switch (input.type) {
     case 'boolean':
@@ -96,6 +104,7 @@ export class HabitSettingsService {
       const shared = {
         name: fields.name, description: fields.description, updatedAt: new Date().toISOString(),
         ...(fields.category === undefined ? {} : { category: fields.category }),
+        ...(fields.missingDataPolicy === undefined ? {} : { missingDataPolicy: fields.missingDataPolicy }),
       }
       let next: Habit
       if (previous.type === 'amount' && fields.type === 'amount') {

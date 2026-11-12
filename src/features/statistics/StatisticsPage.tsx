@@ -14,6 +14,7 @@ import { PeriodPicker } from './PeriodPicker'
 import { StatisticsOverview } from './StatisticsOverview'
 import { TaskStatisticsCard } from './TaskStatisticsCard'
 import { GoalStatisticsCard } from './GoalStatisticsCard'
+import { CoffeeStatistics } from './CoffeeStatistics'
 import { StatisticsTabs } from './StatisticsTabs'
 import { getStatisticsSection, getStatisticsSectionLink } from './statistics-navigation'
 import { useStatistics } from './use-statistics'
@@ -56,6 +57,7 @@ export default function StatisticsPage() {
           {data.amounts.filter((item) => !['food_water', 'training'].includes(getHabitCategory(item.habit))).map((item) => <AmountStatisticsCard key={item.habit.id} data={item} />)}
         </>}
         {section === 'nutrition' && <>
+          <CoffeeStatistics data={data} />
           <FoodRoutineStatistics data={data} mode="nutrition" />
           {data.amounts.filter((item) => getHabitCategory(item.habit) === 'food_water').map((item) => <AmountStatisticsCard key={item.habit.id} data={item} />)}
           <HabitStatistics data={data} category="food_water" title="Привычки питания" />

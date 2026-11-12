@@ -22,15 +22,15 @@ export function StatisticsSummary({ data }: { data: StatisticsDashboard }) {
       <Card className="statistics-summary-card" data-testid="dashboard-coverage">
         <h3><PieChart size={16} aria-hidden="true" />Заполненность</h3><strong data-testid="dashboard-coverage-value">{formatRate(dashboard.averageCoverage)}</strong>
         <div className="dashboard-mini-meter" aria-hidden="true"><span style={{ width: `${dashboard.averageCoverage ?? 0}%` }} /></div>
-        <p><span data-testid="dashboard-filled">{dashboard.filled} / {dashboard.eligible}</span> отметок{!day && ' · в среднем по дням'}</p>
+        <p><span data-testid="dashboard-filled">{dashboard.filled} / {dashboard.eligible}</span> результатов{!day && ' · в среднем по дням'}</p>
       </Card>
       <Card className="statistics-summary-card" data-testid="dashboard-habits">
         <h3><CircleCheck size={16} aria-hidden="true" />Привычки</h3><strong>{markedHabits ? `${dashboard.habits.successCount} / ${markedHabits}` : 'Нет данных'}</strong>
-        <p>{markedHabits ? `выполнено · ${dashboard.habits.failureCount} не выполнено` : 'Пока нет явных отметок'}{dashboard.habits.noDataCount > 0 && ` · ${dashboard.habits.noDataCount} без данных`}</p>
+        <p>{markedHabits ? `выполнено · ${dashboard.habits.failureCount} не выполнено` : 'Пока нет результатов'}{dashboard.habits.noDataCount > 0 && ` · ${dashboard.habits.noDataCount} без данных`}</p>
       </Card>
       <Card className="statistics-summary-card" data-testid="dashboard-training">
         <h3><Dumbbell size={16} aria-hidden="true" />Тренировка</h3><strong>{dashboard.training.recordedDays === 0 ? 'Нет данных' : day ? dashboard.training.workoutDays ? 'Была' : 'Не было' : `${dashboard.training.workoutDays} дн.`}</strong>
-        <p>{day ? 'Отметка о факте тренировки' : `с тренировкой · отмечено ${dashboard.training.recordedDays} дн.`}</p>
+        <p>{day ? 'Результат выбранного дня' : `с тренировкой · известно ${dashboard.training.recordedDays} дн.`}</p>
       </Card>
       <Card className="statistics-summary-card" data-testid="dashboard-screen-time">
         <h3><Monitor size={16} aria-hidden="true" />Экранное время</h3><strong>{formatMinutes(day ? dashboard.screenTime.totalMinutes : dashboard.screenTime.averageMinutes)}</strong>

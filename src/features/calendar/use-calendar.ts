@@ -3,6 +3,7 @@ import { useEffect, useState, useSyncExternalStore } from 'react'
 import { initializeDatabase } from '@/db/database'
 import { getCalendarMonth } from '@/lib/calendar'
 import { isLocalDate, type LocalDate } from '@/lib/local-date'
+import { useLocalDate } from '@/hooks/use-local-date'
 import { getCalendarMonthData, type CalendarMonthData } from '@/services/calendar-service'
 
 function subscribeHash(onChange: () => void) {
@@ -33,6 +34,7 @@ interface ReadState {
 }
 
 export function useCalendarMonth(month: LocalDate) {
+  const today = useLocalDate()
   const [attempt, setAttempt] = useState(0)
   const [initialized, setInitialized] = useState(false)
   const [state, setState] = useState<ReadState | null>(null)
@@ -53,7 +55,7 @@ export function useCalendarMonth(month: LocalDate) {
       })
     }).catch(fail)
     return () => { active = false; subscription?.unsubscribe() }
-  }, [month, attempt])
+  }, [month, attempt, today])
   const current = state?.month === month && state.attempt === attempt ? state : null
   return {
     data: current?.data, loading: current === null, error: Boolean(current?.error), initialized,

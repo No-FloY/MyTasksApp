@@ -45,7 +45,8 @@ test.afterEach(async ({ page }) => {
 function fixture(): StatisticsFixture {
   const habits = createInitialHabits(timestamp).filter((habit) =>
     ['abstinence', 'english', 'reading', 'water', 'gaming', 'social-media'].includes(habit.id))
-    .map((habit) => habit.id === 'reading' ? { ...habit, archivedAt: '2026-10-11T18:00:00.000Z' } : habit)
+    .map((habit) => ({ ...habit, missingDataPolicy: 'manual' as const,
+      ...(habit.id === 'reading' ? { archivedAt: '2026-10-11T18:00:00.000Z' } : {}) }))
   const entryBase = { createdAt: timestamp, updatedAt: timestamp }
   const entries: HabitEntry[] = [
     ...(['09', '10', '14', '15'] as const).map((day) => ({
@@ -100,12 +101,18 @@ function fixture(): StatisticsFixture {
 
 /** Each Playwright test owns a fresh browser context. Never touches the user's profile. */
 async function seedDatabase(page: Page, source: StatisticsFixture) {
+  // Keep the current system catalogue complete while isolating this fixture's six
+  // tracked habits. The other definitions were archived before every tested period.
+  const existing = new Set(source.habits.map((habit) => habit.id))
+  const stored = { ...source, habits: [...source.habits,
+    ...createInitialHabits('2020-01-01T09:00:00.000Z').filter((habit) => !existing.has(habit.id))
+      .map((habit) => ({ ...habit, archivedAt: '2020-01-02T09:00:00.000Z', missingDataPolicy: 'manual' as const }))] }
   await page.route('**/statistics-fixture', (route) => route.fulfill({
     contentType: 'text/html', body: '<!doctype html><html><head><link rel="icon" href="data:,"></head><body>Statistics fixture</body></html>',
   }))
   await page.goto('/statistics-fixture')
   await page.evaluate(async (source) => new Promise<void>((resolve, reject) => {
-    const request = indexedDB.open('zadachnik', 70)
+    const request = indexedDB.open('zadachnik', 90)
     request.onerror = () => reject(request.error)
     request.onupgradeneeded = () => {
       const database = request.result
@@ -127,7 +134,7 @@ async function seedDatabase(page: Page, source: StatisticsFixture) {
       for (const row of source.milestones) milestones.put(row)
     }
     request.onsuccess = () => { request.result.close(); resolve() }
-  }), source)
+  }), stored)
 }
 
 async function readSnapshot(page: Page) {
@@ -208,7 +215,7 @@ test('uses saved boolean, water and duration facts, distinguishes zero from miss
   await selectStatisticsSection(page, 'Экранное время')
   await expect(metric(habit(page, 'duration', 'gaming'), 'total')).toHaveText('12 ч 0 мин')
   expect(await readSnapshot(page)).toEqual(before)
-  expect(before.version).toBe(70)
+  expect(before.version).toBe(90)
   expect(Object.keys(before).sort()).toEqual(['goalMilestones', 'goals', 'habitEntries', 'habits', 'tasks', 'version'])
 })
 

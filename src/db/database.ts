@@ -108,6 +108,18 @@ export class TaskTrackerDatabase extends Dexie {
       await ensureCurrentSystemData(transaction.table<Habit>('habits'))
     })
 
+    // Policy metadata and the neutral coffee definition use the same idempotent
+    // completion as startup and import; no result rows are manufactured.
+    this.version(9).stores({
+      habits: 'id, type, order',
+      habitEntries: '[habitId+date], habitId, date, type',
+      tasks: 'id, date, status, goalId',
+      goals: 'id, status, deadline',
+      goalMilestones: 'id, goalId, [goalId+order]',
+    }).upgrade(async (transaction) => {
+      await ensureCurrentSystemData(transaction.table<Habit>('habits'))
+    })
+
     // populate runs once, in the creation transaction. Reopening never resets data.
     this.on('populate', async (transaction) => {
       await transaction.table<Habit>('habits').bulkAdd(createInitialHabits())

@@ -17,7 +17,8 @@ function day(value: string) {
 function fixture(): BackupData {
   const stamps = { createdAt: timestamp, updatedAt: timestamp }
   return {
-    habits: createInitialHabits(timestamp),
+    habits: createInitialHabits(timestamp).map((habit) => ({ ...habit,
+      missingDataPolicy: habit.schedule?.type === 'weekly' ? 'assume_not_done' as const : 'manual' as const })),
     habitEntries: [
       { ...stamps, habitId: 'english', date: day('2026-10-20'), type: 'boolean', status: 'success', note: 'Практика и заметка' },
       { ...stamps, habitId: 'reading', date: day('2026-10-19'), type: 'boolean', status: 'no-data' },
@@ -44,7 +45,7 @@ function fixture(): BackupData {
 }
 
 function snapshot(data = fixture()): BackupSnapshot {
-  return { app: 'zadachnik', formatVersion: 3, exportedAt: instant.toISOString(), data }
+  return { app: 'zadachnik', formatVersion: 4, exportedAt: instant.toISOString(), data }
 }
 
 function watchErrors(page: Page) {
@@ -172,6 +173,7 @@ test('renames, archives and restores habits while keeping history, calendar note
   expect((await readDatabase(page)).habitEntries).toEqual(before.habitEntries)
   await openSettings(page)
   await card(page, 'english').getByRole('button', { name: 'Восстановить Мой английский', exact: true }).click()
+  await expect(card(page, 'english').getByRole('button', { name: 'Архивировать Мой английский', exact: true })).toBeVisible()
   await page.goto('/')
   await expect(page.locator('[data-habit-id="english"]')).toContainText('Мой английский')
   await expect(page.locator('[data-habit-id="english"]').getByRole('button', { name: 'Успех', exact: true })).toHaveAttribute('aria-pressed', 'true')
@@ -212,7 +214,7 @@ test('downloads all tables and restores an exact snapshot, including links and m
   const before = await readDatabase(page)
   const backup = await downloadBackup(page)
   expect(backup.app).toBe('zadachnik')
-  expect(backup.formatVersion).toBe(3)
+  expect(backup.formatVersion).toBe(4)
   expect(backup.exportedAt).toBe(instant.toISOString())
   expect(backup.data).toEqual(before)
   let dialog = await edit(page, 'english')
@@ -223,7 +225,7 @@ test('downloads all tables and restores an exact snapshot, including links and m
   await page.getByRole('button', { name: 'Восстановить из файла', exact: true }).click()
   await (await picker).setFiles({ name: 'previous.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(backup)) })
   const preview = page.getByRole('region', { name: 'Предпросмотр резервной копии', exact: true })
-  await expect(preview).toContainText('23')
+  await expect(preview).toContainText('24')
   await expect(preview).toContainText('6')
   expect(await readDatabase(page)).toEqual(changed) // Preview must be read-only.
   expect((await downloadBackup(page, 'Скачать текущую копию')).data).toEqual(changed)
@@ -272,16 +274,20 @@ test('rejects invalid JSON, foreign apps, unsupported versions and broken links 
   expect(await readDatabase(page)).toEqual(before)
 })
 
-test('restores and exports an empty snapshot without repopulating seed habits after reload', async ({ page }) => {
+test('restores current system definitions from an empty snapshot without inventing facts or duplicating habits after reload', async ({ page }) => {
   await seed(page)
   const empty: BackupData = { habits: [], habitEntries: [], tasks: [], goals: [], goalMilestones: [] }
   await selectBackup(page, snapshot(empty))
   await confirmImport(page)
-  expect(await readDatabase(page)).toEqual(empty)
+  const restored = await readDatabase(page)
+  expect(restored.habits).toHaveLength(24)
+  expect(new Set(restored.habits.map((habit) => habit.id)).size).toBe(24)
+  for (const name of ['habitEntries', 'tasks', 'goals', 'goalMilestones'] as const) expect(restored[name]).toEqual([])
+  for (const habit of restored.habits) expect(habit.createdAt).toBe(instant.toISOString())
   await page.reload()
-  expect((await downloadBackup(page)).data).toEqual(empty)
+  expect((await downloadBackup(page)).data).toEqual(restored)
   await page.goto('/')
-  await expect(page.locator('[data-habit-id], [data-amount-habit-id], [data-duration-habit-id]')).toHaveCount(0)
+  await expect(page.locator('[data-habit-id], [data-amount-habit-id], [data-duration-habit-id]')).toHaveCount(24)
   await openSettings(page)
   await selectBackup(page, snapshot())
   await confirmImport(page)

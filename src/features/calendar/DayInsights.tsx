@@ -2,6 +2,7 @@ import { liveQuery } from 'dexie'
 import { useEffect, useId, useState, type FormEvent } from 'react'
 import { Button } from '../../components/ui/button'
 import type { LocalDate } from '../../lib/local-date'
+import { useLocalDate } from '@/hooks/use-local-date'
 import {
   getDayHabitNotes, MAX_HABIT_NOTE_LENGTH, setHabitEntryNote, type HabitEntryWithNote,
 } from '../../services/habit-note-service'
@@ -23,6 +24,7 @@ interface NoteFormState {
 }
 
 export function DayInsights({ date }: { date: LocalDate }) {
+  const today = useLocalDate()
   const [data, setData] = useState<DayInsightData | null>(null)
   const [error, setError] = useState<{ date: LocalDate; message: string } | null>(null)
   const [retry, setRetry] = useState(0)
@@ -41,7 +43,7 @@ export function DayInsights({ date }: { date: LocalDate }) {
       }),
     })
     return () => subscription.unsubscribe()
-  }, [date, retry])
+  }, [date, retry, today])
 
   const rows = data?.date === date ? data.notes.filter(({ habit }) => habit.archivedAt === null) : []
   const selected = rows.find((row) => row.habit.id === selection[date]) ?? rows[0]

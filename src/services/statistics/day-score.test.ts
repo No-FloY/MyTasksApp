@@ -213,7 +213,7 @@ describe('calendar-week score', () => {
 })
 
 describe('scheduled day and week scores', () => {
-  const cleaning = boolean('cleaning', { category: 'routine', schedule: { type: 'weekly' } })
+  const cleaning = boolean('cleaning', { category: 'routine', schedule: { type: 'weekly' }, missingDataPolicy: 'assume_not_done' })
 
   it('includes alcohol and meals as boolean scores without giving their category extra weight', () => {
     const habits = createInitialHabits(timestamp).filter((habit) => ['no-alcohol', 'breakfast', 'lunch', 'dinner', 'english', 'cleaning'].includes(habit.id))

@@ -2,12 +2,14 @@ import { liveQuery, type Subscription } from 'dexie'
 import { useEffect, useState } from 'react'
 import { initializeDatabase } from '@/db/database'
 import type { LocalDate } from '@/lib/local-date'
+import { useLocalDate } from '@/hooks/use-local-date'
 import { getDayScore, getWeeklyScore } from '@/services/statistics/day-score-service'
 
 function useScore<T>(date: LocalDate, read: (date: LocalDate) => Promise<T>) {
+  const today = useLocalDate()
   const [attempt, setAttempt] = useState(0)
   const [state, setState] = useState<{ key: string; data?: T; error?: boolean } | null>(null)
-  const key = `${date}/${attempt}`
+  const key = `${date}/${today}/${attempt}`
   useEffect(() => {
     let active = true
     let subscription: Subscription | undefined

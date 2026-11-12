@@ -99,9 +99,10 @@ describe('task store migration from IndexedDB v2 through the current schema', ()
 
     const current = await openCurrentDatabase(legacy.name)
 
-    expect(current.verno).toBe(8)
+    expect(current.verno).toBe(9)
     expect(current.tables.map((table) => table.name).sort()).toEqual(['goalMilestones', 'goals', 'habitEntries', 'habits', 'tasks'])
-    expect((await current.habits.toArray()).filter((habit) => originalHabits.some((original) => original.id === habit.id))).toStrictEqual(originalHabits)
+    expect((await current.habits.toArray()).filter((habit) => originalHabits.some((original) => original.id === habit.id)))
+      .toStrictEqual(originalHabits.map((habit) => habit.id === 'personal-rating' ? { ...habit, missingDataPolicy: 'manual' } : habit))
     expect(await current.habits.count()).toBe(originalHabits.length + 2)
     expect(await current.habitEntries.toArray()).toStrictEqual(originalEntries)
     expect(current.habits.schema).toStrictEqual(originalHabitSchema)
@@ -123,7 +124,8 @@ describe('task store migration from IndexedDB v2 through the current schema', ()
     legacy.close()
     const migrated = await openCurrentDatabase(legacy.name)
     const migratedHabits = await migrated.habits.toArray()
-    expect(migratedHabits.filter((habit) => originalHabits.some((original) => original.id === habit.id))).toStrictEqual(originalHabits)
+    expect(migratedHabits.filter((habit) => originalHabits.some((original) => original.id === habit.id)))
+      .toStrictEqual(originalHabits.map((habit) => habit.id === 'personal-rating' ? { ...habit, missingDataPolicy: 'manual' } : habit))
     const service = new TaskService(migrated)
     const task = await service.createTask({
       title: 'После обновления', description: 'Данные остались на месте',
@@ -134,7 +136,7 @@ describe('task store migration from IndexedDB v2 through the current schema', ()
 
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const reopened = await openCurrentDatabase(legacy.name)
-      expect(reopened.verno).toBe(8)
+      expect(reopened.verno).toBe(9)
       expect(await reopened.tasks.toArray()).toStrictEqual([completed])
       expect(await reopened.tasks.where('date').equals(thirdDay).toArray()).toStrictEqual([completed])
       expect(await reopened.tasks.where('status').equals('completed').toArray()).toStrictEqual([completed])

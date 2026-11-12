@@ -43,6 +43,31 @@ async function openCalendar(page: Page) {
   await expect(page.getByTestId('calendar-month')).toBeVisible()
 }
 
+async function trackManualHabitsFromOctober(page: Page) {
+  // These scenarios test explicit-record completeness during tracking. Policies and
+  // dates before creation are covered separately by current-data.spec.ts.
+  await page.evaluate(() => new Promise<void>((resolve, reject) => {
+    const request = indexedDB.open('zadachnik')
+    request.onerror = () => reject(request.error)
+    request.onsuccess = () => {
+      const database = request.result
+      const transaction = database.transaction('habits', 'readwrite')
+      const cursor = transaction.objectStore('habits').openCursor()
+      cursor.onsuccess = () => {
+        const item = cursor.result
+        if (item) {
+          item.update({ ...item.value, createdAt: '2026-10-01T09:00:00.000Z', missingDataPolicy: 'manual' })
+          item.continue()
+        }
+      }
+      transaction.oncomplete = () => { database.close(); resolve() }
+      transaction.onabort = () => { database.close(); reject(transaction.error) }
+    }
+  }))
+  await page.reload()
+  await expect(page.getByTestId('calendar-month')).toBeVisible()
+}
+
 async function readEntries(page: Page) {
   return page.evaluate(async () => new Promise<HabitEntry[]>((resolve, reject) => {
     const request = indexedDB.open('zadachnik')
@@ -124,6 +149,7 @@ test('edits all tracker types in a past day, replaces totals and restores histor
   const errors = watchErrors(page)
   await page.clock.setFixedTime(instant)
   await openCalendar(page)
+  await trackManualHabitsFromOctober(page)
   await day(page, past).click()
   await expect(selectedDay(page, past).getByRole('heading', { level: 2 }).first()).toContainText('2 октября 2026')
   await expect(day(page, past)).toHaveAttribute('aria-pressed', 'true')
@@ -196,6 +222,7 @@ test('derives empty, partial and complete day summaries from real records and ke
   const errors = watchErrors(page)
   await page.clock.setFixedTime(instant)
   await openCalendar(page)
+  await trackManualHabitsFromOctober(page)
   await day(page, past).click()
   await expect(day(page, past)).toHaveAttribute('data-day-status', 'no-data')
   expect(await readEntries(page)).toEqual([])
@@ -208,7 +235,7 @@ test('derives empty, partial and complete day summaries from real records and ke
   await expect(day(page, past)).toHaveAttribute('data-day-status', 'partial')
 
   const rows = page.locator('[data-habit-id]')
-  await expect(rows).toHaveCount(16)
+  await expect(rows).toHaveCount(17)
   for (const row of await rows.all()) {
     const success = row.getByRole('button', { name: /^(Успех|Не пил|Не ел|Был|Выполнено)$/ })
     await success.click()
@@ -230,7 +257,7 @@ test('derives empty, partial and complete day summaries from real records and ke
   await booleanCard(page).getByRole('button', { name: 'Нет данных', exact: true }).click()
   await expect(day(page, past)).toHaveAttribute('data-day-status', 'partial')
   const entries = await readEntries(page)
-  expect(entries).toHaveLength(23)
+  expect(entries).toHaveLength(24)
   for (const entry of entries) {
     expect(entry).not.toHaveProperty('dayStatus')
     expect(entry).not.toHaveProperty('completionPercent')
@@ -243,6 +270,7 @@ test('rejects invalid amounts, saves zero and preserves unsaved drafts only for 
   const errors = watchErrors(page)
   await page.clock.setFixedTime(instant)
   await openCalendar(page)
+  await trackManualHabitsFromOctober(page)
   await day(page, past).click()
   await saveAmount(page, '1200')
   await expectAmount(page, 1200, 60)
@@ -432,6 +460,7 @@ test('updates the calendar and weekly statistics live when the same records chan
   const errors = watchErrors(page)
   await page.clock.setFixedTime(instant)
   await openCalendar(page)
+  await trackManualHabitsFromOctober(page)
   await expectAmount(page, 0, 0)
   const otherPage = await context.newPage()
   const otherErrors = watchErrors(otherPage)

@@ -30,7 +30,7 @@ function entry(habitId: string, entryDate = selectedDate): HabitEntry {
 describe('computed daily calendar summary', () => {
   it('treats absent records and explicit boolean no-data as unrecorded rather than failures', () => {
     expect(computeDaySummary(habits, [], selectedDate)).toEqual({
-      status: 'no-data', recorded: 0, total: 22, successes: 0, failures: 0,
+      status: 'no-data', recorded: 0, total: 23, successes: 0, failures: 0,
     })
     const noData: HabitEntry = { ...entry('english'), type: 'boolean', status: 'no-data' }
     expect(computeDaySummary(habits, [noData], selectedDate)).toEqual(computeDaySummary(habits, [], selectedDate))
@@ -38,14 +38,14 @@ describe('computed daily calendar summary', () => {
 
   it('counts recorded amount and duration zero and distinguishes them from missing records', () => {
     expect(computeDaySummary(habits, [entry('water'), entry('gaming')], selectedDate)).toEqual({
-      status: 'partial', recorded: 2, total: 22, successes: 0, failures: 0,
+      status: 'partial', recorded: 2, total: 23, successes: 0, failures: 0,
     })
   })
 
   it('marks all recorded habits complete even when boolean outcomes are failures', () => {
     const entries = habits.map((habit) => entry(habit.id))
     expect(computeDaySummary(habits, entries, selectedDate)).toEqual({
-      status: 'complete', recorded: 22, total: 22, successes: 0, failures: 15,
+      status: 'complete', recorded: 23, total: 23, successes: 0, failures: 15,
     })
   })
 
@@ -55,7 +55,7 @@ describe('computed daily calendar summary', () => {
       { ...entry('water'), type: 'amount', value: 2400 }, entry('gaming'),
     ]
     expect(computeDaySummary(habits, entries, selectedDate)).toEqual({
-      status: 'partial', recorded: 4, total: 22, successes: 1, failures: 1,
+      status: 'partial', recorded: 4, total: 23, successes: 1, failures: 1,
     })
   })
 
@@ -82,6 +82,18 @@ describe('computed daily calendar summary', () => {
     expect({ habits, entries }).toEqual(before)
   })
 
+  it('excludes newly backfilled definitions from historical totals but preserves real earlier entries', () => {
+    const english = habits.find((habit) => habit.id === 'english')!
+    const coffee = habits.find((habit) => habit.id === 'coffee')!
+    const tracked = [english, { ...coffee, createdAt: '2026-10-03T09:00:00.000Z' }]
+    expect(computeDaySummary(tracked, [entry('english')], selectedDate)).toEqual({
+      status: 'complete', recorded: 1, total: 1, successes: 0, failures: 1,
+    })
+    expect(computeDaySummary(tracked, [entry('english'), entry('coffee')], selectedDate)).toEqual({
+      status: 'complete', recorded: 2, total: 2, successes: 0, failures: 1,
+    })
+  })
+
   it('rejects malformed dates and incompatible or invalid stored results', () => {
     expect(() => computeDaySummary(habits, [], '2026-02-30' as LocalDate)).toThrow('Некорректная')
     expect(() => computeDaySummary(habits, [{ ...entry('water'), type: 'duration', minutes: 0 }], selectedDate)).toThrow('Тип сохранённой записи')
@@ -101,6 +113,8 @@ describe('calendar month data from existing IndexedDB tables', () => {
     service = new CalendarService(database)
     habitService = new HabitService(database)
     await database.open()
+    // These range/read tests keep manual semantics and a known historical start.
+    await database.habits.toCollection().modify({ createdAt: timestamp, missingDataPolicy: 'manual' })
   })
 
   afterEach(async () => {
@@ -139,7 +153,7 @@ describe('calendar month data from existing IndexedDB tables', () => {
     const data = await service.getMonth(selectedDate)
     expect(habitQuery).toHaveBeenCalledExactlyOnceWith('order')
     expect(entryQuery).toHaveBeenCalledExactlyOnceWith('date')
-    expect(data.habits).toHaveLength(23)
+    expect(data.habits).toHaveLength(24)
     expect(data.entries).toHaveLength(3)
     expect(Object.keys(data.summaries)).toHaveLength(35)
     expect(data.summaries['2026-09-28']).toMatchObject({ status: 'partial', recorded: 1 })
@@ -154,7 +168,7 @@ describe('calendar month data from existing IndexedDB tables', () => {
     const data = await service.getMonth(selectedDate)
     expect(data.habits.find((habit) => habit.id === 'english')?.archivedAt).toBe(timestamp)
     expect(data.entries).toEqual(before)
-    expect(data.summaries[selectedDate]).toMatchObject({ status: 'no-data', total: 21, failures: 0 })
+    expect(data.summaries[selectedDate]).toMatchObject({ status: 'no-data', total: 22, failures: 0 })
     expect(await database.habitEntries.toArray()).toEqual(before)
     expect(database.tables.map((table) => table.name).sort()).toEqual(['goalMilestones', 'goals', 'habitEntries', 'habits', 'tasks'])
   })

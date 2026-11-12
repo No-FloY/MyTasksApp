@@ -10,7 +10,7 @@ function WeeklyMetrics({ data }: { data: WeeklyScoreData }) {
     <dl className="weekly-score-metrics">
       <div><dt>Полностью заполнено</dt><dd data-statistic="full-days">{data.fullDays} дн.</dd></div>
       <div><dt>Частично заполнено</dt><dd data-statistic="partial-days">{data.partialDays} дн.</dd></div>
-      <div><dt>Без записей</dt><dd data-statistic="missing-days">{data.missingDays} дн.</dd></div>
+      <div><dt>Без данных</dt><dd data-statistic="missing-days">{data.missingDays} дн.</dd></div>
       <div><dt>Без доступных показателей</dt><dd>{data.unavailableDays} дн.</dd></div>
       <div><dt>Лучший день</dt><dd data-statistic="best-day">{data.bestDay ? `${formatStatisticsDate(data.bestDay.date, true)} · ${formatRate(data.bestDay.score)}` : 'Нет данных'}</dd></div>
       <div><dt>Самый слабый день</dt><dd data-statistic="worst-day">{data.worstDay ? `${formatStatisticsDate(data.worstDay.date, true)} · ${formatRate(data.worstDay.score)}` : 'Нет данных'}</dd></div>
@@ -39,8 +39,8 @@ export function WeeklyScoreCard({ data, compact = false }: { data: WeeklyScoreDa
           <td>{formatRate(day.score)}{day.score !== null && !day.sufficient && <small>Не входит в среднее</small>}</td><td>{formatRate(day.coverage)}</td></tr>)}</tbody>
       </table></div>
       <p>Неделя начинается в понедельник; будущие дни не учитываются. Для ежедневных привычек берём оценки категорий за дни с заполненностью не ниже 50%. Лучший и самый слабый день используют тот же порог; при равенстве показана более ранняя дата.</p>
-      <p>Каждую недельную цель добавляем один раз в её категорию, затем усредняем категории с данными с равным весом. Назначенная на день недельная цель повторно не считается. Без данных цель исключена из среднего; отсутствие результата за полностью отслеживаемую завершённую неделю означает 0%. Неполная неделя создания или архивации остаётся без данных.</p>
-      <p>Средняя заполненность относится к ежедневным оценкам: пустые дни дают 0%, дни без ожидаемых показателей исключены. Отсутствующие ежедневные данные не становятся нулевыми оценками.</p>
+      <p>Каждую недельную цель добавляем один раз в её категорию, затем усредняем категории с данными с равным весом. Назначенная на день недельная цель повторно не считается. Без данных цель исключена из среднего. Правило «Считать невыполненным» даёт 0% за полностью отслеживаемую завершённую неделю без отметки. Неполная неделя создания или архивации остаётся без данных.</p>
+      <p>Средняя заполненность учитывает явные отметки и результаты по правилам завершённых дней. Дни без ожидаемых показателей исключены. При ручной политике пропуски остаются без данных; кофе не влияет на оценку и заполненность.</p>
     </details>
   </section>
 }

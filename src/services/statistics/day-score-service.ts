@@ -29,7 +29,7 @@ export class DayScoreService {
         database.habits.toArray(), database.habitEntries.where('date').between(getWeekStart(date), date, true, true).toArray(),
       ])
       const firstRecordedDates = await readFirstRecordedDates(database, habits, date)
-      return calculateDayScore(habits, entries, date, firstRecordedDates)
+      return calculateDayScore(habits, entries, date, firstRecordedDates, getLocalDate())
     })
   }
 

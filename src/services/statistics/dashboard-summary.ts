@@ -1,4 +1,5 @@
 import { HABIT_CATEGORIES, getHabitCategory } from '../../models/habit-category'
+import { isObservationalHabit } from '../../models/habit-policy'
 import type { AmountStatistics } from './amount-statistics'
 import type { DayScoreData, WeeklyScoreData } from './day-score'
 import type { DurationStatistics } from './duration-statistics'
@@ -22,6 +23,7 @@ function average(values: number[]): number | null {
 
 /** Compact selectors consume already-calculated period data; no storage reads or per-card scoring. */
 export function calculateDashboardSummary({ period, days, weeklyScore, booleans, amounts, durations, food }: DashboardSource) {
+  const scoredBooleans = booleans.filter((item) => !isObservationalHabit(item.habit))
   const sufficient = days.filter((day) => day.sufficient)
   const eligibleDays = days.filter((day) => day.eligible > 0)
   const day = days[0]
@@ -64,9 +66,9 @@ export function calculateDashboardSummary({ period, days, weeklyScore, booleans,
     bestDay: isWeek ? weeklyScore.bestDay : bestDay,
     worstDay: isWeek ? weeklyScore.worstDay : worstDay,
     habits: {
-      successCount: booleans.reduce((sum, item) => sum + item.successCount, 0),
-      failureCount: booleans.reduce((sum, item) => sum + item.failureCount, 0),
-      noDataCount: booleans.reduce((sum, item) => sum + item.noDataCount, 0),
+      successCount: scoredBooleans.reduce((sum, item) => sum + item.successCount, 0),
+      failureCount: scoredBooleans.reduce((sum, item) => sum + item.failureCount, 0),
+      noDataCount: scoredBooleans.reduce((sum, item) => sum + item.noDataCount, 0),
     },
     training: { workoutDays: workout?.successCount ?? 0, recordedDays: workout?.markedCount ?? 0 },
     food: {

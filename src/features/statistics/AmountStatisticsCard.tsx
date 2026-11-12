@@ -10,7 +10,7 @@ export function AmountStatisticsCard({ data }: { data: AmountStatistics }) {
     <Card className="statistics-card">
       <h2>{data.habit.name} {data.habit.archivedAt && <span className="statistics-badge">Архив</span>}</h2>
       <dl className="week-metrics statistics-metrics">
-        <div><dt>Среднее по дням с записью</dt><dd data-statistic="average">{formatNumber(data.average)}{data.average !== null && ` ${unit}`}</dd></div>
+        <div><dt>Среднее по дням с результатом</dt><dd data-statistic="average">{formatNumber(data.average)}{data.average !== null && ` ${unit}`}</dd></div>
         <div><dt>Среднее за календарный день отслеживания</dt><dd data-statistic="average-per-day">{formatNumber(data.averagePerDay)}{data.averagePerDay !== null && ` ${unit}`}</dd></div>
         <div><dt>Цель достигнута</dt><dd data-statistic="successful">{data.successfulDays} / {data.daysWithData} дн.</dd></div>
         <div><dt>Доля дней с достигнутой целью</dt><dd data-statistic="success-rate">{formatRate(data.successRate)}</dd></div>
@@ -25,10 +25,10 @@ export function AmountStatisticsCard({ data }: { data: AmountStatistics }) {
         <summary>Значения по дням</summary>
         <div className="statistics-table-scroll"><table className="duration-days"><caption>{data.habit.name}: фактические значения</caption>
           <thead><tr><th scope="col">Дата</th><th scope="col">{unit}</th><th scope="col">Цель</th></tr></thead>
-          <tbody>{data.days.map((day) => <tr key={day.date} data-amount-value={day.value ?? 'missing'}><th scope="row"><time dateTime={day.date}>{formatStatisticsDate(day.date, includeYear)}</time></th><td>{formatNumber(day.value)}</td><td>{day.value === null ? 'Нет данных' : day.value >= data.habit.target ? 'Достигнута' : 'Ниже цели'}</td></tr>)}</tbody>
+          <tbody>{data.days.map((day) => <tr key={day.date} data-amount-value={day.value ?? 'missing'}><th scope="row"><time dateTime={day.date}>{formatStatisticsDate(day.date, includeYear)}</time></th><td>{formatNumber(day.value)}{day.source === 'inferred' && <small> · по правилу</small>}</td><td>{day.value === null ? 'Нет данных' : day.value >= data.habit.target ? 'Достигнута' : 'Ниже цели'}</td></tr>)}</tbody>
         </table></div>
       </details>
-      <p className="week-explanation">Среднее по записям и процент используют дни с записью, включая ноль. Среднее за календарный день делит сохранённую сумму на дни отслеживания; оно не заменяет пропуски нулевыми результатами. Значения выше цели сохранены полностью.</p>
+      <p className="week-explanation">Среднее и процент используют известные результаты, включая ноль по правилу завершённого дня. При ручном заполнении пропуски остаются без данных. Значения выше цели сохранены полностью.</p>
     </Card>
   </section>
 }

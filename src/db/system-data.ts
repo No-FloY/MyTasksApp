@@ -1,7 +1,7 @@
 import type { Table } from 'dexie'
 import type { Habit } from '../models/habit'
 import { enrichLegacyHabit, type LegacyHabit } from './habit-backfill'
-import { createInitialHabits } from './seed'
+import { createInitialHabits, withDefaultHabitPolicy } from './seed'
 
 /**
  * Current system definitions share their source with first-run seed. Existing IDs
@@ -12,7 +12,7 @@ export function backfillCurrentSystemHabits(habits: readonly LegacyHabit[], now:
   const defaults = createInitialHabits(now)
   const byId = new Map(defaults.map((habit) => [habit.id, habit]))
   const result = habits.map((habit) => {
-    const normalized = enrichLegacyHabit(habit)
+    const normalized = withDefaultHabitPolicy(enrichLegacyHabit(habit))
     const initial = byId.get(habit.id)
     if (normalized.type === 'duration' && normalized.ratingRanges === undefined && initial?.type === 'duration') {
       return { ...normalized, ratingRanges: initial.ratingRanges }

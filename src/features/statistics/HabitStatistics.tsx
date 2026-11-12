@@ -1,11 +1,12 @@
 import { Card } from '@/components/ui/card'
 import type { StatisticsDashboard } from '@/services/statistics/statistics-service'
 import { getHabitCategory, type HabitCategory } from '@/models/habit-category'
+import { isObservationalHabit } from '@/models/habit-policy'
 import { formatRate } from './format-statistics'
 
 export function HabitStatistics({ data, category, title = 'Привычки' }: { data: StatisticsDashboard; category?: HabitCategory; title?: string }) {
   const habits = data.booleans.filter((item) => !['no-alcohol', 'breakfast', 'lunch', 'dinner'].includes(item.habit.id)
-    && (!category || getHabitCategory(item.habit) === category))
+    && !isObservationalHabit(item.habit) && (!category || getHabitCategory(item.habit) === category))
   return <section className="statistics-section" aria-labelledby="boolean-statistics-heading">
     <h2 id="boolean-statistics-heading">{title}</h2>
     <details className="statistics-table-details"><summary>Как считаются привычки и серии</summary><p className="week-explanation">Доля успехов = успехи / (успехи + неудачи). «Нет данных» не считается неудачей. Серии ограничены выбранным периодом; текущая заканчивается его последним днём. Дни до создания и после архивации исключены из пропусков; сохранённые записи остаются в расчётах.</p></details>

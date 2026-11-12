@@ -28,7 +28,12 @@ async function startTrackingInOctober(page: Page) {
       const cursor = transaction.objectStore('habits').openCursor()
       cursor.onsuccess = () => {
         const item = cursor.result
-        if (item) { item.update({ ...item.value, createdAt: created }); item.continue() }
+        if (item) {
+          // This regression covers explicit facts; inferred policies have their own suite.
+          item.update({ ...item.value, createdAt: created,
+            missingDataPolicy: item.value.schedule?.type === 'weekly' ? 'assume_not_done' : 'manual' })
+          item.continue()
+        }
       }
       transaction.oncomplete = () => { db.close(); resolve() }
       transaction.onabort = () => { db.close(); reject(transaction.error) }
@@ -151,7 +156,7 @@ test('keeps unfilled category progress visible and new actions usable at 320/375
     await expect(toggle).toHaveAttribute('aria-expanded', 'true')
     await toggle.click()
     await expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    await expect(food.locator('header')).toContainText('4 / 10')
+    await expect(food.locator('header')).toContainText('4 / 11')
     await expect(row(page, 'breakfast')).not.toBeVisible()
     await toggle.click()
     await expect(row(page, 'breakfast')).toBeVisible()

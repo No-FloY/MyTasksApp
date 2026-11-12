@@ -75,8 +75,8 @@ describe('goal migration from IndexedDB v3 to v4', () => {
     legacy.close()
     const current = await currentDatabase(legacy.name)
 
-    expect(current.verno).toBe(8)
-    expect(current.backendDB().version).toBe(80)
+    expect(current.verno).toBe(9)
+    expect(current.backendDB().version).toBe(90)
     expect(current.tables.map(({ name }) => name).sort()).toEqual(['goalMilestones', 'goals', 'habitEntries', 'habits', 'tasks'])
     expect((await current.habits.toArray()).filter((habit) => habit.id !== 'reading')).toStrictEqual(habits)
     expect(await current.habits.count()).toBe(habits.length + 1)
@@ -123,13 +123,13 @@ describe('goal migration from IndexedDB v3 to v4', () => {
 
   it('creates new databases with the usual seed and no invented goals, milestones or tasks', async () => {
     const current = await currentDatabase(`zadachnik-new-goals-${crypto.randomUUID()}`)
-    expect(await current.habits.count()).toBe(23)
+    expect(await current.habits.count()).toBe(24)
     expect(await current.habitEntries.count()).toBe(0)
     expect(await current.tasks.count()).toBe(0)
     expect(await current.goals.count()).toBe(0)
     expect(await current.goalMilestones.count()).toBe(0)
     current.close()
     await current.open()
-    expect(await current.habits.count()).toBe(23)
+    expect(await current.habits.count()).toBe(24)
   })
 })

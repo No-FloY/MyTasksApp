@@ -4,6 +4,7 @@ import { BACKUP_FORMAT_VERSION, type BackupSnapshot } from '../models/backup'
 import type { DurationRatingRange } from '../models/duration-rating'
 import type { Goal, GoalMilestone } from '../models/goal'
 import type { Habit } from '../models/habit'
+import { BOOLEAN_HABIT_MODES, MISSING_DATA_POLICIES } from '../models/habit-policy'
 import type { HabitSchedule } from '../models/habit-schedule'
 import { getHabitCategory, HABIT_CATEGORIES } from '../models/habit-category'
 import type { HabitEntry } from '../models/habit-entry'
@@ -123,12 +124,13 @@ function schedule(value: unknown, path: string): HabitSchedule {
   return { type, days }
 }
 
-function habit(value: unknown, path: string, formatVersion: 1 | 2 | 3): Habit {
-  const baseKeys = ['id', 'name', 'description', 'order', 'createdAt', 'updatedAt', 'archivedAt', 'type', ...(formatVersion >= 2 ? ['category'] : []), ...(formatVersion >= 3 ? ['schedule'] : [])]
+function habit(value: unknown, path: string, formatVersion: 1 | 2 | 3 | 4): Habit {
+  const baseKeys = ['id', 'name', 'description', 'order', 'createdAt', 'updatedAt', 'archivedAt', 'type', ...(formatVersion >= 2 ? ['category'] : []), ...(formatVersion >= 3 ? ['schedule'] : []), ...(formatVersion >= 4 ? ['missingDataPolicy'] : [])]
+  const booleanKeys = formatVersion >= 4 ? ['booleanMode'] : []
   const amountKeys = ['unit', 'target', ...(formatVersion >= 2 ? ['quickActions', 'manualMode'] : [])]
-  const row = object(value, path, [...baseKeys, ...amountKeys, 'ratingRanges'])
+  const row = object(value, path, [...baseKeys, ...amountKeys, ...booleanKeys, 'ratingRanges'])
   const type = oneOf(row.type, `${path}.type`, ['boolean', 'amount', 'duration', 'rating'])
-  object(value, path, [...baseKeys, ...(type === 'amount' ? amountKeys : type === 'duration' ? ['unit', 'ratingRanges'] : [])])
+  object(value, path, [...baseKeys, ...(type === 'amount' ? amountKeys : type === 'duration' ? ['unit', 'ratingRanges'] : type === 'boolean' ? booleanKeys : [])])
   const id = text(row.id, `${path}.id`, true)
   const base = {
     id,
@@ -139,13 +141,14 @@ function habit(value: unknown, path: string, formatVersion: 1 | 2 | 3): Habit {
     ...times(row, path),
     archivedAt: row.archivedAt === null ? null : timestamp(row.archivedAt, `${path}.archivedAt`),
     ...(Object.hasOwn(row, 'schedule') ? { schedule: schedule(row.schedule, `${path}.schedule`) } : {}),
+    ...(Object.hasOwn(row, 'missingDataPolicy') ? { missingDataPolicy: oneOf(row.missingDataPolicy, `${path}.missingDataPolicy`, MISSING_DATA_POLICIES) } : {}),
   }
   if (type === 'amount') {
     const target = unsignedInteger(row.target, `${path}.target`)
     if (target === 0) invalid(`${path}.target`, 'значение должно быть больше нуля')
     const fields = { ...base, type, unit: text(row.unit, `${path}.unit`, true), target }
-    // Version 1 conversion enriches only imported definitions. Replace imports
-    // deliberately do not add new seed habits or reinterpret their history.
+    // Preview converts imported definitions only. System backfill runs atomically
+    // after confirmed replacement, never while parsing the selected file.
     if (formatVersion === 1) return enrichLegacyHabit(fields)
     const quickActions = rows(row.quickActions, `${path}.quickActions`, (item, itemPath) => {
       const delta = unsignedInteger(item, itemPath)
@@ -164,7 +167,9 @@ function habit(value: unknown, path: string, formatVersion: 1 | 2 | 3): Habit {
     }
     return { ...base, type, unit: oneOf(row.unit, `${path}.unit`, ['minutes']), ratingRanges }
   }
-  return { ...base, type }
+  return type === 'boolean' ? { ...base, type,
+    ...(Object.hasOwn(row, 'booleanMode') ? { booleanMode: oneOf(row.booleanMode, `${path}.booleanMode`, BOOLEAN_HABIT_MODES) } : {}),
+  } : { ...base, type }
 }
 
 function habitEntry(value: unknown, path: string): HabitEntry {
@@ -255,7 +260,7 @@ export function validateBackupSnapshot(value: unknown): BackupSnapshot {
   if (root.formatVersion > BACKUP_FORMAT_VERSION) {
     throw new Error('Эта резервная копия создана более новой версией приложения и пока не поддерживается.')
   }
-  if (root.formatVersion !== 1 && root.formatVersion !== 2 && root.formatVersion !== BACKUP_FORMAT_VERSION) invalid('formatVersion', 'эта версия формата не поддерживается')
+  if (root.formatVersion !== 1 && root.formatVersion !== 2 && root.formatVersion !== 3 && root.formatVersion !== BACKUP_FORMAT_VERSION) invalid('formatVersion', 'эта версия формата не поддерживается')
   const formatVersion = root.formatVersion
   const exportedAt = timestamp(root.exportedAt, 'exportedAt')
   const source = object(root.data, 'data', ['habits', 'habitEntries', 'tasks', 'goals', 'goalMilestones'])

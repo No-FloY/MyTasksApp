@@ -3,6 +3,8 @@ import Dexie from 'dexie'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TaskTrackerDatabase } from '../db/database'
 import { createInitialHabits } from '../db/seed'
+import { backfillCurrentSystemHabits } from '../db/system-data'
+import type { Habit } from '../models/habit'
 import { getLocalDate } from '../lib/local-date'
 import { BACKUP_FORMAT_VERSION, type BackupData, type BackupSnapshot } from '../models/backup'
 import type { Goal } from '../models/goal'
@@ -34,7 +36,7 @@ function fullBackup(): BackupSnapshot {
     { id: 'short', label: 'Немного', emoji: '🙂', minMinutes: 0, maxMinutes: 90 },
     { id: 'long', label: 'Много', emoji: '🙁', minMinutes: 91, maxMinutes: null },
   ]
-  habits.push({ id: 'rating', category: 'study_work', type: 'rating', name: 'Моя оценка', description: '', order: 18, archivedAt: null, ...times })
+  habits.push({ id: 'rating', category: 'study_work', type: 'rating', name: 'Моя оценка', description: '', order: 18, archivedAt: null, missingDataPolicy: 'manual', ...times })
   const baseGoal: Goal = {
     id: 'goal', title: 'Найти работу', description: 'Первая строка\nВторая строка',
     deadline: getLocalDate(new Date(2026, 11, 31)), status: 'active', progressMode: 'auto',
@@ -94,12 +96,48 @@ function versionOneBackup() {
     delete legacy.category
     delete legacy.quickActions
     delete legacy.manualMode
+    delete legacy.missingDataPolicy
+    delete legacy.booleanMode
     return legacy
   })
   return { ...snapshot, formatVersion: 1, data: { ...snapshot.data, habits } }
 }
 
+function withoutPolicy(habit: Habit): Habit {
+  const copy = { ...habit }
+  delete copy.missingDataPolicy
+  if (copy.type === 'boolean') delete copy.booleanMode
+  return copy
+}
+
 describe('backup runtime validation', () => {
+  it('round-trips explicit policy choices and neutral observation metadata in format 4', () => {
+    const snapshot = fullBackup()
+    snapshot.data.habits.find((habit) => habit.id === 'english')!.missingDataPolicy = 'manual'
+    const result = parseBackupJson(JSON.stringify(snapshot))
+    expect(result.formatVersion).toBe(4)
+    expect(result).toStrictEqual(snapshot)
+    expect(result.data.habits.find((habit) => habit.id === 'coffee')).toMatchObject({ booleanMode: 'observation', missingDataPolicy: 'assume_not_occurred' })
+  })
+
+  it.each([1, 2, 3])('rejects new policy metadata in legacy format %s instead of silently discarding it', (formatVersion) => {
+    const snapshot = fullBackup()
+    const source = formatVersion === 1 ? versionOneBackup() : { ...snapshot, data: { ...snapshot.data, habits: snapshot.data.habits.map(withoutPolicy) } }
+    source.data.habits[0] = { ...source.data.habits[0], missingDataPolicy: 'manual' }
+    expect(() => parseBackupJson(JSON.stringify({ ...source, formatVersion }))).toThrow('missingDataPolicy')
+  })
+
+  it.each([null, '', 'automatic', 0, {}])('rejects malformed missing policy metadata %j', (value) => {
+    expect(() => parseBackupJson(JSON.stringify(changeRow('habits', 0, 'missingDataPolicy', value)))).toThrow('missingDataPolicy')
+  })
+
+  it('rejects unknown boolean semantics and semantics on non-boolean habits', () => {
+    expect(() => parseBackupJson(JSON.stringify(changeRow('habits', 0, 'booleanMode', 'good')))).toThrow('booleanMode')
+    const snapshot = fullBackup()
+    const water = snapshot.data.habits.findIndex((habit) => habit.id === 'water')
+    expect(() => parseBackupJson(JSON.stringify(changeRow('habits', water, 'booleanMode', 'observation')))).toThrow('booleanMode')
+  })
+
   it('parses all supported entities without changing fields, ranges, dates or optional values', () => {
     const fixture = fullBackup()
     expect(parseBackupJson(JSON.stringify(fixture))).toStrictEqual(fixture)
@@ -114,7 +152,7 @@ describe('backup runtime validation', () => {
   it('explicitly converts version 1 metadata while preserving all original fields and rows', () => {
     const legacy = versionOneBackup()
     const converted = parseBackupJson(JSON.stringify(legacy))
-    expect(converted.formatVersion).toBe(3)
+    expect(converted.formatVersion).toBe(4)
     expect(converted.exportedAt).toBe(legacy.exportedAt)
     expect(converted.data.habits).toHaveLength(12)
     expect(converted.data.habits.map((habit) => habit.id)).toEqual(legacy.data.habits.map((habit) => habit.id))
@@ -180,12 +218,12 @@ describe('backup runtime validation', () => {
 
   it('imports v2 daily definitions without adding supplementary habits or interpreting their IDs as schedules', () => {
     const fixture = fullBackup()
-    const habits = fixture.data.habits.filter((habit) => habit.order < 18)
+    const habits = fixture.data.habits.filter((habit) => habit.order < 18).map(withoutPolicy)
     const converted = parseBackupJson(JSON.stringify({ ...fixture, formatVersion: 2, data: { ...fixture.data, habits, habitEntries: [] } }))
     expect(converted.data.habits).toStrictEqual(habits)
     expect(converted.data.habits).toHaveLength(18)
     expect(converted.data.habits.every((habit) => habit.schedule === undefined)).toBe(true)
-    expect(converted.formatVersion).toBe(3)
+    expect(converted.formatVersion).toBe(4)
   })
 
   it.each([
@@ -201,6 +239,7 @@ describe('backup runtime validation', () => {
 
   it('rejects schedule metadata in old formats rather than dropping it', () => {
     const fixture = fullBackup()
+    fixture.data.habits = fixture.data.habits.map(withoutPolicy)
     expect(() => parseBackupJson(JSON.stringify({ ...fixture, formatVersion: 2 }))).toThrow('schedule')
   })
 
@@ -224,7 +263,7 @@ describe('backup runtime validation', () => {
   })
 
   it('explains newer backup versions without attempting to guess their structure', () => {
-    expect(() => parseBackupJson(JSON.stringify({ app: 'zadachnik', formatVersion: 4, exportedAt: updatedAt, data: {} })))
+    expect(() => parseBackupJson(JSON.stringify({ app: 'zadachnik', formatVersion: 5, exportedAt: updatedAt, data: {} })))
       .toThrow('создана более новой версией приложения')
   })
 
@@ -358,12 +397,12 @@ describe('backup export and atomic replacement', () => {
   it('exports a new seeded database with every table, ISO metadata and a separate format version', async () => {
     const snapshot = await service.exportBackup()
     expect(snapshot).toMatchObject({
-      app: 'zadachnik', formatVersion: 3, exportedAt: '2026-10-19T21:30:00.000Z',
+      app: 'zadachnik', formatVersion: 4, exportedAt: '2026-10-19T21:30:00.000Z',
       data: { habitEntries: [], tasks: [], goals: [], goalMilestones: [] },
     })
-    expect(snapshot.data.habits).toHaveLength(23)
+    expect(snapshot.data.habits).toHaveLength(24)
     expect(snapshot.data).toStrictEqual(await readData())
-    expect(database.verno).toBe(8)
+    expect(database.verno).toBe(9)
   })
 
   it('exports a genuinely empty database without adding seed data', async () => {
@@ -440,12 +479,13 @@ describe('backup export and atomic replacement', () => {
       goals: [...data.goals].sort((a, b) => a.id.localeCompare(b.id)),
       goalMilestones: [...data.goalMilestones].sort((a, b) => a.id.localeCompare(b.id)),
     })
-    const expected = { ...converted.data, habits: [...converted.data.habits,
-      ...createInitialHabits().filter((habit) => !converted.data.habits.some((existing) => existing.id === habit.id))] }
+    const expected = { ...converted.data, habits: backfillCurrentSystemHabits(converted.data.habits, new Date().toISOString()) }
     expect(sortByKey((await service.exportBackup()).data)).toStrictEqual(sortByKey(expected))
     database.close()
     await database.open()
-    expect(await database.habits.count()).toBe(24)
+    expect(await database.habits.count()).toBe(25)
+    expect(await database.habits.get('coffee')).toMatchObject({ category: 'food_water', type: 'boolean', booleanMode: 'observation', missingDataPolicy: 'assume_not_occurred', createdAt: new Date().toISOString() })
+    expect(await database.habitEntries.where('habitId').equals('coffee').count()).toBe(0)
     expect(await database.habits.get('no-chips')).toMatchObject({ category: 'food_water', createdAt: new Date().toISOString() })
     expect(await database.habits.get('push-ups')).toMatchObject({ category: 'training', target: 100, quickActions: [10], manualMode: 'total', createdAt: new Date().toISOString() })
     expect(await database.habits.get('cleaning')).toMatchObject({ schedule: { type: 'weekly' }, createdAt: new Date().toISOString() })
@@ -462,15 +502,15 @@ describe('backup export and atomic replacement', () => {
 
   it.each([2, 3] as const)('restores pre-food/weekly version %s and preserves renamed or archived system definitions', async (formatVersion) => {
     const snapshot = fullBackup()
-    snapshot.data.habits = snapshot.data.habits.filter((habit) => habit.order < 18 || habit.id === 'rating')
+    snapshot.data.habits = snapshot.data.habits.filter((habit) => habit.order < 18 || habit.id === 'rating').map(withoutPolicy)
     const renamed = snapshot.data.habits.find((habit) => habit.id === 'push-ups')!
     Object.assign(renamed, { name: 'Моя практика', description: 'Личный текст', archivedAt: updatedAt, category: 'self_development' })
     if (renamed.type === 'amount') Object.assign(renamed, { target: 12, quickActions: [3], manualMode: 'add' })
     const expected = structuredClone(snapshot.data)
     await service.importBackup({ ...snapshot, formatVersion })
     const actual = await readData()
-    expect(actual.habits).toHaveLength(24)
-    for (const original of expected.habits) expect(await database.habits.get(original.id)).toStrictEqual(original)
+    expect(actual.habits).toHaveLength(25)
+    for (const original of expected.habits) expect(withoutPolicy((await database.habits.get(original.id))!)).toStrictEqual(original)
     for (const table of ['habitEntries', 'tasks', 'goals', 'goalMilestones'] as const) {
       expect(actual[table]).toHaveLength(expected[table].length)
     }

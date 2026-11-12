@@ -76,9 +76,28 @@ describe('habit settings on the existing universal model', () => {
     await service.setHabitArchived('english', true)
     await database.habits.update('english', { order: 100 })
     const habits = await service.getHabits()
-    expect(habits).toHaveLength(23)
+    expect(habits).toHaveLength(24)
     expect(habits.at(-1)).toMatchObject({ id: 'english', order: 100, archivedAt: new Date().toISOString() })
     expect(habits.map((habit) => habit.order)).toEqual(habits.map((habit) => habit.order).sort((a, b) => a - b))
+  })
+
+  it('changes missing-day policy without rewriting history and preserves it in later edits', async () => {
+    const history = await seedHistory()
+    await service.updateHabit('english', { ...booleanInput, missingDataPolicy: 'assume_not_done' })
+    expect((await getHabit('english')).missingDataPolicy).toBe('assume_not_done')
+    await service.updateHabit('english', booleanInput)
+    expect((await getHabit('english')).missingDataPolicy).toBe('assume_not_done')
+    expect(await database.habitEntries.toArray()).toEqual(history)
+    await service.updateHabit('english', { ...booleanInput, missingDataPolicy: 'manual' })
+    expect((await getHabit('english')).missingDataPolicy).toBe('manual')
+  })
+
+  it('rejects unknown or unsupported inferred policies without changing the definition', async () => {
+    const before = await getHabit('gaming')
+    await expect(service.updateHabit('gaming', { ...durationInput, missingDataPolicy: 'assume_not_done' })).rejects.toThrow('правило')
+    await expect(service.updateHabit('english', { ...booleanInput, missingDataPolicy: 'surprise' } as unknown as HabitSettingsInput)).rejects.toThrow('правило')
+    await expect(service.updateHabit('water', { ...amountInput, missingDataPolicy: 'assume_not_occurred' })).rejects.toThrow('правило')
+    expect(await getHabit('gaming')).toEqual(before)
   })
 
   it('renames and describes a habit while preserving its identity and all exact historical fields', async () => {
@@ -223,7 +242,7 @@ describe('habit settings on the existing universal model', () => {
     expect((await results.getTodayAmountHabits(past)).map(({ habit }) => habit.id)).toEqual(['push-ups', 'abs', 'squats', 'pull-ups'])
     expect(await durations.getTodayDurationHabits(past)).toEqual([])
     expect(await database.habitEntries.toArray()).toEqual(history)
-    expect(await database.habits.count()).toBe(23)
+    expect(await database.habits.count()).toBe(24)
     for (const id of ['english', 'water', 'gaming', 'social-media']) await service.setHabitArchived(id, false)
     expect((await results.getTodayHabits(past)).find(({ habit }) => habit.id === 'english')?.status).toBe('success')
     expect((await results.getTodayAmountHabits(past)).find(({ habit }) => habit.id === 'water')?.value).toBe(2200)

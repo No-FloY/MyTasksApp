@@ -1,13 +1,14 @@
 import type { LocalDate } from '../../lib/local-date'
 import type { AmountHabit } from '../../models/habit'
 import type { HabitEntry } from '../../models/habit-entry'
-import { getAmountHabitProgress } from '../habit-service'
+import { getAmountHabitProgress, getAmountHabitResultProgress } from '../habit-service'
+import type { HabitResultSource } from '../habit-result'
 import { isHabitExpectedOnDate } from '../habit-schedule'
 import { getHabitPeriodDates, type StatisticsPeriod } from './period-utils'
 
 export interface AmountStatistics {
   habit: AmountHabit
-  days: { date: LocalDate; value: number | null }[]
+  days: { date: LocalDate; value: number | null; source: HabitResultSource }[]
   eligibleDays: number
   ineligibleDays: number
   average: number | null
@@ -30,8 +31,8 @@ export function calculateAmountStatistics(
   const eligibleDays = getHabitPeriodDates(habit, entries, period, firstRecordedDate)
     .filter((date) => isHabitExpectedOnDate(habit, date) || byDate.has(date)).length
   const days = period.dates.map((date) => {
-    const result = getAmountHabitProgress(habit, byDate.get(date))
-    return { date, value: result.hasEntry ? result.value : null }
+    const result = getAmountHabitResultProgress(habit, byDate.get(date), date, period.today)
+    return { date, value: result.hasEntry ? result.value : null, source: result.source ?? 'no-data' }
   })
   // Validate configuration even when the habit did not exist in this period.
   getAmountHabitProgress(habit, undefined)

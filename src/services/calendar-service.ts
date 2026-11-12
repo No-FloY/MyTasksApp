@@ -1,11 +1,13 @@
 import { db, type TaskTrackerDatabase } from '../db/database'
 import { getCalendarMonth } from '../lib/calendar'
-import { isLocalDate, type LocalDate } from '../lib/local-date'
+import { getLocalDate, isLocalDate, type LocalDate } from '../lib/local-date'
 import type { Habit } from '../models/habit'
 import type { HabitEntry } from '../models/habit-entry'
 import { readDurationMinutes } from './duration-service'
-import { getAmountHabitProgress, HabitService } from './habit-service'
+import { getAmountHabitResultProgress, HabitService } from './habit-service'
 import { getHabitEntryDate, isHabitExpectedOnDate } from './habit-schedule'
+import { resolveHabitResult } from './habit-result'
+import { isObservationalHabit } from '../models/habit-policy'
 
 export interface DaySummary {
   status: 'no-data' | 'partial' | 'complete'
@@ -22,25 +24,31 @@ export interface CalendarMonthData {
   summaries: Record<string, DaySummary>
 }
 
-export function computeDaySummary(habits: Habit[], entries: HabitEntry[], date: LocalDate): DaySummary {
+export function computeDaySummary(habits: Habit[], entries: HabitEntry[], date: LocalDate, today: LocalDate = date): DaySummary {
   if (!isLocalDate(date)) throw new Error('Некорректная календарная дата.')
-  const supported = habits.filter((habit) => habit.archivedAt === null && habit.type !== 'rating' && isHabitExpectedOnDate(habit, date))
   const byHabit = new Map(entries.map((entry) => [`${entry.habitId}:${entry.date}`, entry]))
+  // A new definition must not add missing results to days before it existed.
+  // Real backdated entries still belong to those days and remain visible.
+  const supported = habits.filter((habit) => habit.archivedAt === null && habit.type !== 'rating'
+    && isHabitExpectedOnDate(habit, date)
+    && (getLocalDate(new Date(habit.createdAt)) <= date || byHabit.has(`${habit.id}:${getHabitEntryDate(habit, date)}`)))
   let recorded = 0
   let successes = 0
   let failures = 0
   for (const habit of supported) {
     const entry = byHabit.get(`${habit.id}:${getHabitEntryDate(habit, date)}`)
-    if (!entry) continue
-    if (habit.type !== entry.type) throw new Error('Тип сохранённой записи не соответствует привычке.')
-    if (entry.type === 'boolean') {
-      if (entry.status === 'no-data') continue
-      if (entry.status !== 'success' && entry.status !== 'failure') throw new Error('Некорректный результат привычки.')
-      if (entry.status === 'success') successes += 1
-      else failures += 1
+    if (entry && entry.type !== habit.type) throw new Error('Тип сохранённой записи не соответствует привычке.')
+    const result = resolveHabitResult(habit, entry, date, today)
+    if (result.type === 'boolean') {
+      if (result.status === 'no-data') continue
+      if (!isObservationalHabit(habit)) {
+        if (result.status === 'success') successes += 1
+        else failures += 1
+      }
     } else if (habit.type === 'amount') {
-      getAmountHabitProgress(habit, entry)
+      if (!getAmountHabitResultProgress(habit, entry, date, today).hasEntry) continue
     } else if (habit.type === 'duration') {
+      if (!entry) continue
       readDurationMinutes(entry)
     }
     recorded += 1
@@ -66,7 +74,8 @@ export class CalendarService {
     return this.database.transaction('r', this.database.habits, this.database.habitEntries, async () => {
       const habits = await this.database.habits.orderBy('order').toArray()
       const entries = await this.habitService.getEntriesForDateRange(grid.startDate, grid.endDate)
-      const summaries = Object.fromEntries(grid.days.map(({ date: day }) => [day, computeDaySummary(habits, entries, day)]))
+      const today = getLocalDate()
+      const summaries = Object.fromEntries(grid.days.map(({ date: day }) => [day, computeDaySummary(habits, entries, day, today)]))
       return { habits, entries, summaries }
     })
   }

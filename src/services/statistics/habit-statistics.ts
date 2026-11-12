@@ -1,13 +1,14 @@
 import type { LocalDate } from '../../lib/local-date'
 import type { BooleanHabit } from '../../models/habit'
 import type { BooleanHabitStatus, HabitEntry } from '../../models/habit-entry'
-import { calculateBooleanStreak } from '../streak-service'
+import { calculateBooleanResultStreak } from '../streak-service'
+import { resolveHabitResult, type HabitResultSource } from '../habit-result'
 import { isHabitExpectedOnDate } from '../habit-schedule'
 import { getHabitPeriodDates, type StatisticsPeriod } from './period-utils'
 
 export interface BooleanStatistics {
   habit: BooleanHabit
-  days: { date: LocalDate; status: BooleanHabitStatus }[]
+  days: { date: LocalDate; status: BooleanHabitStatus; source: HabitResultSource }[]
   eligibleDays: number
   successCount: number
   failureCount: number
@@ -31,9 +32,10 @@ export function calculateBooleanStatistics(
   const days = dates.map((date) => {
     const entry = byDate.get(date)
     if (entry && entry.type !== 'boolean') throw new Error('Тип записи не соответствует привычке.')
-    return { date, status: entry?.status ?? 'no-data' as const }
+    const result = resolveHabitResult(habit, entry, date, period.today)
+    return { date, status: result.status, source: result.source }
   })
-  const streak = calculateBooleanStreak(habit.id, selectedEntries, period.endDate)
+  const streak = calculateBooleanResultStreak(days, period.endDate)
   const markedCount = streak.successes + streak.failures
   return {
     habit, days, eligibleDays: days.length,

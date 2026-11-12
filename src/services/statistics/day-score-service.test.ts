@@ -28,7 +28,8 @@ describe('day score read snapshots', () => {
     service = new DayScoreService(database)
     await database.open()
     await database.habits.clear()
-    await database.habits.bulkPut(createInitialHabits(timestamp).filter((habit) => ['reading', 'no-sweets', 'push-ups'].includes(habit.id)))
+    await database.habits.bulkPut(createInitialHabits(timestamp).filter((habit) => ['reading', 'no-sweets', 'push-ups'].includes(habit.id))
+      .map((habit) => ({ ...habit, missingDataPolicy: 'manual' as const })))
   })
   afterEach(async () => {
     vi.restoreAllMocks()

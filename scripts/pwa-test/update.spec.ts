@@ -2,6 +2,7 @@ import { devices, expect, test } from '@playwright/test'
 import { mkdir } from 'node:fs/promises'
 import { startDeployment } from './deployment'
 import { downloadBackup, expectNoOverflow, instant, readDatabase, restoreBackup, seed, waitForServiceWorker } from './helpers'
+import { legacyBackup } from './legacy-backup'
 
 test('detects a real second build and updates only after consent and closing another window, preserving IndexedDB', async ({ browser, browserName }) => {
   const deployment = await startDeployment()
@@ -151,6 +152,36 @@ test('detects a real second build and updates only after consent and closing ano
     await expect(reopened.getByLabel('Выбранный месяц', { exact: true })).toHaveValue('2026-10')
     expect(await readDatabase(reopened)).toEqual(offline)
     await expectNoOverflow(reopened)
+    // Restore a genuine old snapshot while the actual origin remains stopped.
+    // Current system definitions are restored atomically without inventing history.
+    await reopened.goto('/#settings')
+    const legacy = legacyBackup()
+    await restoreBackup(reopened, legacy)
+    const restored = await readDatabase(reopened)
+    expect(restored.habits).toHaveLength(24)
+    expect(new Set(restored.habits.map((habit) => habit.id)).size).toBe(24)
+    expect(restored.habitEntries).toEqual(expect.arrayContaining(legacy.data.habitEntries))
+    expect(restored.habitEntries).toHaveLength(legacy.data.habitEntries.length)
+    await reopened.goto('/#today')
+    const restoredPushups = reopened.locator('[data-amount-habit-id="push-ups"]')
+    await restoredPushups.getByRole('button', { name: /^\+10/ }).click()
+    await expect(restoredPushups.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '10')
+    const coffee = reopened.locator('[data-habit-id="coffee"]')
+    await coffee.getByRole('button', { name: 'Пил', exact: true }).click()
+    await expect(coffee.getByRole('button', { name: 'Пил', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await reopened.reload()
+    await expect(coffee.getByRole('button', { name: 'Пил', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await reopened.goto('/#calendar?date=2026-10-22')
+    await expect(reopened.locator('[data-habit-id="coffee"]')).toHaveAttribute('data-result-source', 'no-data')
+    await expect(reopened.locator('[data-habit-id="english"]')).toHaveAttribute('data-result-source', 'inferred')
+    await reopened.goto('/#settings')
+    const migrated = await readDatabase(reopened)
+    expect(migrated.habitEntries).toHaveLength(legacy.data.habitEntries.length + 2)
+    const currentBackup = await downloadBackup(reopened)
+    expect(currentBackup.formatVersion).toBe(4)
+    await restoreBackup(reopened, currentBackup)
+    await reopened.reload()
+    expect(await readDatabase(reopened)).toEqual(migrated)
     expect(errors).toEqual([])
   } finally {
     await context.close()

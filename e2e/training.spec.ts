@@ -7,26 +7,28 @@ import { fixture, readDatabase, expectNoOverflow, waitForServiceWorker } from '.
 const instant = new Date('2026-10-24T09:00:00.000Z')
 const date = '2026-10-24'
 const created = '2026-10-01T09:00:00.000Z'
-const newIds = ['no-sweets', 'push-ups', 'abs', 'squats', 'pull-ups', 'walk-10km', 'workout', 'no-alcohol', 'breakfast', 'lunch', 'dinner', 'cleaning']
+const newIds = ['no-sweets', 'push-ups', 'abs', 'squats', 'pull-ups', 'walk-10km', 'workout', 'no-alcohol', 'breakfast', 'lunch', 'dinner', 'cleaning', 'coffee']
 const additionIds = ['no-alcohol', 'breakfast', 'lunch', 'dinner', 'cleaning']
 
-function oldBackupData(includeStageTen = false) {
+function oldBackupData(includeStageTen = false, includeAdditions = false) {
   const source = fixture()
-  return { ...source, habits: createInitialHabits(created).filter((habit) => !(includeStageTen ? additionIds : newIds).includes(habit.id)).map((habit) => {
+  return { ...source, habits: createInitialHabits(created).filter((habit) => habit.id !== 'coffee' && (includeAdditions || !(includeStageTen ? additionIds : newIds).includes(habit.id))).map((habit) => {
     const legacy: Record<string, unknown> = { ...habit }
     if (!includeStageTen) {
       delete legacy.category
       delete legacy.quickActions
       delete legacy.manualMode
     }
-    delete legacy.schedule
+    if (!includeAdditions) delete legacy.schedule
+    delete legacy.missingDataPolicy
+    delete legacy.booleanMode
     if (habit.id === 'water') { legacy.name = 'Моя вода'; legacy.target = 2700 }
     if (habit.id === 'english') { legacy.name = 'Мой английский'; legacy.archivedAt = '2026-10-22T10:00:00.000Z' }
     return legacy
   }) }
 }
 
-async function seedOldDatabase(page: Page, version = 40, data: ReturnType<typeof oldBackupData> | ReturnType<typeof fixture> = oldBackupData(version === 50)) {
+async function seedOldDatabase(page: Page, version = 40, data: ReturnType<typeof oldBackupData> | ReturnType<typeof fixture> = oldBackupData(version >= 50, version >= 80)) {
   await page.route('**/training-migration-setup', (route) => route.fulfill({ contentType: 'text/html', body: '<!doctype html><link rel="icon" href="data:,"><p>Migration setup</p>' }))
   await page.goto('/training-migration-setup')
   await page.evaluate(({ data, version }) => new Promise<void>((resolve, reject) => {
@@ -70,7 +72,7 @@ for (const existing of [false, true]) test(`upgrades schema-v6 with ${existing ?
   await page.goto('/#today')
   await expect(page.locator('[data-amount-habit-id="water"]')).toBeVisible()
   const after = await readDatabase(page)
-  expect(after.habits).toHaveLength(23)
+  expect(after.habits).toHaveLength(24)
   expect(after.habits.filter((habit) => habit.id === 'no-sweets')).toHaveLength(1)
   if (existing) expect(after.habits.find((habit) => habit.id === 'no-sweets')).toEqual(source.habits.find((habit) => habit.id === 'no-sweets'))
   else {
@@ -85,12 +87,12 @@ for (const existing of [false, true]) test(`upgrades schema-v6 with ${existing ?
   expect(await readDatabase(page)).toEqual(after)
 })
 
-for (const version of [40, 50]) test(`upgrades a real schema-v${version / 10} database without losing renamed/archived habits, records or task-goal links`, async ({ page }) => {
+for (const version of [40, 50, 80]) test(`upgrades a real schema-v${version / 10} database without losing renamed/archived habits, records or task-goal links`, async ({ page }) => {
   const before = await seedOldDatabase(page, version)
   await page.goto('/#today')
   await expect(page.locator('[data-amount-habit-id="push-ups"]')).toBeVisible()
   const after = await readDatabase(page)
-  expect(after.habits).toHaveLength(23)
+  expect(after.habits).toHaveLength(24)
   for (const habit of before.habits) expect(after.habits.find((item) => item.id === habit.id)).toMatchObject({ ...habit })
   expect(after.habits.find((habit) => habit.id === 'water')).toMatchObject({ name: 'Моя вода', target: 2700, category: 'food_water', quickActions: [200, 400], manualMode: 'add' })
   expect(after.habits.find((habit) => habit.id === 'english')).toMatchObject({ name: 'Мой английский', category: 'self_development', archivedAt: '2026-10-22T10:00:00.000Z' })
@@ -120,7 +122,14 @@ test('records categorized training, computes transparent scores, edits history/s
       const db = request.result
       const transaction = db.transaction('habits', 'readwrite')
       const cursor = transaction.objectStore('habits').openCursor()
-      cursor.onsuccess = () => { const item = cursor.result; if (item) { item.update({ ...item.value, createdAt: created }); item.continue() } }
+      cursor.onsuccess = () => {
+        const item = cursor.result
+        if (item) {
+          item.update({ ...item.value, createdAt: created,
+            missingDataPolicy: item.value.schedule?.type === 'weekly' ? 'assume_not_done' : 'manual' })
+          item.continue()
+        }
+      }
       transaction.oncomplete = () => { db.close(); resolve() }
       transaction.onabort = () => reject(transaction.error)
     }
@@ -177,7 +186,7 @@ test('records categorized training, computes transparent scores, edits history/s
   const file = await (await downloadEvent).path()
   if (!file) throw new Error('Missing backup download')
   const backup = JSON.parse(await readFile(file, 'utf8'))
-  expect(backup.formatVersion).toBe(3)
+  expect(backup.formatVersion).toBe(4)
   expect(backup.data).toEqual(categorized)
   await page.getByLabel('Файл резервной копии', { exact: true }).setInputFiles(file)
   await page.getByRole('button', { name: 'Продолжить импорт', exact: true }).click()
@@ -197,8 +206,8 @@ test('records categorized training, computes transparent scores, edits history/s
   expect(errors).toEqual([])
 })
 
-for (const version of [1, 2]) test(`imports a real format-v${version} snapshot and preserves old facts while enriching only its definitions`, async ({ page }) => {
-  const data = oldBackupData(version === 2)
+for (const version of [1, 2, 3]) test(`imports a real format-v${version} snapshot and restores current definitions while preserving old facts`, async ({ page }) => {
+  const data = oldBackupData(version >= 2, version === 3)
   await page.goto('/#settings')
   const backupInput = page.getByLabel('Файл резервной копии', { exact: true })
   // File selection does not wait for enabled controls; initial database loading does.
@@ -210,10 +219,13 @@ for (const version of [1, 2]) test(`imports a real format-v${version} snapshot a
   await expect(page.getByText('Данные успешно восстановлены.', { exact: true })).toBeVisible()
   await page.reload()
   const after = await readDatabase(page)
-  expect(after.habits).toHaveLength(version === 1 ? 11 : 18)
+  expect(after.habits).toHaveLength(24)
+  expect(new Set(after.habits.map((habit) => habit.id)).size).toBe(24)
   for (const habit of data.habits) expect(after.habits.find((item) => item.id === habit.id)).toMatchObject(habit)
   const sortRows = (rows: readonly unknown[]) => [...rows].sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
   for (const name of ['habitEntries', 'tasks', 'goals', 'goalMilestones'] as const) expect(sortRows(after[name])).toEqual(sortRows(data[name]))
+  await page.reload()
+  expect(await readDatabase(page)).toEqual(after)
 })
 
 test('uses training quick actions and totals offline after a real production precache', async ({ page, context, browserName }) => {

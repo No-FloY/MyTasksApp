@@ -54,7 +54,7 @@ function milestone(completed = false): GoalMilestone {
 }
 
 function source(fields: Partial<StatisticsSource> = {}): StatisticsSource {
-  return { habits: createInitialHabits(timestamp), entries: [], tasks: [], goals: [], milestones: [], ...fields }
+  return { habits: createInitialHabits(timestamp).map((habit) => ({ ...habit, missingDataPolicy: 'manual' as const })), entries: [], tasks: [], goals: [], milestones: [], ...fields }
 }
 
 describe('statistics dashboard calculations', () => {
@@ -120,7 +120,7 @@ describe('statistics snapshot from IndexedDB', () => {
     database = new TaskTrackerDatabase(`statistics-dashboard-${crypto.randomUUID()}`)
     service = new StatisticsService(database)
     await database.open()
-    await database.habits.bulkPut(createInitialHabits(timestamp))
+    await database.habits.bulkPut(createInitialHabits(timestamp).map((habit) => ({ ...habit, missingDataPolicy: 'manual' as const })))
   })
 
   afterEach(async () => {
@@ -149,7 +149,7 @@ describe('statistics snapshot from IndexedDB', () => {
     expect(result.tasks).toMatchObject({ tasksDue: 2, failed: 1, completedOnTime: 1, onTimeRate: 50 })
     expect(result.goals).toMatchObject({ activeGoals: 1, averageProgress: 100 })
     expect(await Promise.all(database.tables.map((table) => table.toArray()))).toEqual(before)
-    expect(database.verno).toBe(8)
+    expect(database.verno).toBe(9)
     expect(database.tables.map((table) => table.name).sort()).toEqual(['goalMilestones', 'goals', 'habitEntries', 'habits', 'tasks'])
   })
 
@@ -166,7 +166,7 @@ describe('statistics snapshot from IndexedDB', () => {
   })
 
   it('uses older backdated keys consistently when switching ranges without reading their values', async () => {
-    await database.habits.bulkPut(createInitialHabits('2026-10-15T10:00:00.000Z'))
+    await database.habits.bulkPut(createInitialHabits('2026-10-15T10:00:00.000Z').map((habit) => ({ ...habit, missingDataPolicy: 'manual' as const })))
     await database.habitEntries.bulkAdd([
       booleanEntry('2026-09-20', 'success'), amountEntry('2026-09-20', 3000), durationEntry('2026-09-20', 120),
       booleanEntry('2026-10-16', 'success'), amountEntry('2026-10-16', 2000), durationEntry('2026-10-16', 60),

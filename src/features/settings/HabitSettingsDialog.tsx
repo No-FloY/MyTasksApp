@@ -3,6 +3,7 @@ import { LoaderCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useDialog } from '@/components/ui/use-dialog'
 import type { Habit } from '@/models/habit'
+import { getMissingDataPolicy, MISSING_DATA_POLICIES, type MissingDataPolicy } from '@/models/habit-policy'
 import { HABIT_CATEGORIES, getHabitCategory, isHabitCategory } from '@/models/habit-category'
 import type { DurationRatingRange } from '@/models/duration-rating'
 import { validateRatingRanges } from '@/services/duration-service'
@@ -39,6 +40,7 @@ export function HabitSettingsDialog({ habit, onClose, onSaved, fallbackFocus }: 
   const [name, setName] = useState(habit.name)
   const [description, setDescription] = useState(habit.description)
   const [category, setCategory] = useState(getHabitCategory(habit))
+  const [missingDataPolicy, setMissingDataPolicy] = useState<MissingDataPolicy>(getMissingDataPolicy(habit))
   const [target, setTarget] = useState(habit.type === 'amount' ? String(habit.target) : '')
   const [ranges, setRanges] = useState<RangeDraft[]>(habit.type === 'duration'
     ? habit.ratingRanges.map((range) => ({
@@ -130,7 +132,7 @@ export function HabitSettingsDialog({ habit, onClose, onSaved, fallbackFocus }: 
     setSaving(true)
     setSaveError('')
     try {
-      const base = { name, description, category }
+      const base = { name, description, category, missingDataPolicy }
       if (habit.type === 'amount') await updateHabitSettings(habit.id, { ...base, type: habit.type, target: Number(target) })
       else if (habit.type === 'duration') await updateHabitSettings(habit.id, { ...base, type: habit.type, ratingRanges })
       else await updateHabitSettings(habit.id, { ...base, type: habit.type })
@@ -171,6 +173,18 @@ export function HabitSettingsDialog({ habit, onClose, onSaved, fallbackFocus }: 
             </select>
             {fieldError('category')}
             <p className="settings-notice" id={`${id}-category-help`}>Категория применяется ко всей истории. Категории имеют равный вес в оценке дня, поэтому оценки прошлых дней могут измениться. Записанные результаты сохраняются.</p>
+          </div>
+          <div className="task-field">
+            <label htmlFor={`${id}-missing-policy`}>Если день не заполнен</label>
+            <select id={`${id}-missing-policy`} value={missingDataPolicy} disabled={saving || habit.type === 'duration' || habit.type === 'rating'} aria-describedby={`${id}-policy-help`} onChange={(event) => {
+              const value = MISSING_DATA_POLICIES.find((policy) => policy === event.target.value)
+              if (value) setMissingDataPolicy(value)
+            }}>
+              <option value="manual">Оставить без данных</option>
+              {(habit.type === 'boolean' || habit.type === 'amount') && <option value="assume_not_done">Считать невыполненным</option>}
+              {habit.type === 'boolean' && <option value="assume_not_occurred">Считать, что событие не происходило</option>}
+            </select>
+            <p className="settings-notice" id={`${id}-policy-help`}>Правило действует после завершения локального дня, начиная с даты появления привычки. Для недельной привычки — после завершения всей недели. Явная отметка, в том числе «Нет данных», имеет приоритет. Изменение правила пересчитает прошлые пропуски; сохранённые записи останутся прежними.</p>
           </div>
           {habit.type === 'amount' && <>
             <div className="task-field">

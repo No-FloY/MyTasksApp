@@ -78,8 +78,8 @@ describe('duration configuration migration from IndexedDB v1 to v2', () => {
     const originalWater = await legacy.habits.get('water')
     const current = await upgrade(legacy)
 
-    expect(current.verno).toBe(8)
-    expect(await current.habits.count()).toBe(23)
+    expect(current.verno).toBe(9)
+    expect(await current.habits.count()).toBe(24)
     expect(await current.habitEntries.count()).toBe(entries.length)
     expect(await current.habits.get('gaming')).toEqual({
       ...originalGaming, ratingRanges: getInitialDurationRanges('gaming'),
@@ -107,7 +107,7 @@ describe('duration configuration migration from IndexedDB v1 to v2', () => {
     await legacy.habitEntries.put(historicalEntry)
     const current = await upgrade(legacy)
 
-    expect(await current.habits.count()).toBe(23)
+    expect(await current.habits.count()).toBe(24)
     expect(await current.habits.get('social-media')).toMatchObject({ ratingRanges: getInitialDurationRanges('social-media') })
     expect(await current.habits.get('reading')).toBeDefined()
     expect(await current.habitEntries.where('habitId').anyOf('social-media', 'reading').count()).toBe(0)
@@ -141,7 +141,7 @@ describe('duration configuration migration from IndexedDB v1 to v2', () => {
     expect(await reopened.habitEntries.get(['gaming', today])).toMatchObject({ minutes: 215 })
   })
 
-  it('does not rewrite a habit whose built-in id was changed to another type', async () => {
+  it('preserves a changed built-in type while supplying neutral default policy metadata', async () => {
     const legacy = await createLegacyDatabase()
     const gaming = await legacy.habits.get('gaming')
     if (!gaming) throw new Error('Missing legacy habit')
@@ -151,6 +151,6 @@ describe('duration configuration migration from IndexedDB v1 to v2', () => {
     })
     const before = await legacy.habits.get('gaming')
     const current = await upgrade(legacy)
-    expect(await current.habits.get('gaming')).toEqual(before)
+    expect(await current.habits.get('gaming')).toEqual({ ...before, missingDataPolicy: 'manual', booleanMode: 'achievement' })
   })
 })

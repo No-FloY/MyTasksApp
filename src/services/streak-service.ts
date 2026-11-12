@@ -1,8 +1,10 @@
-import { addDays, parseISO } from 'date-fns'
+import { addDays, eachDayOfInterval, parseISO } from 'date-fns'
 import { db, type TaskTrackerDatabase } from '../db/database'
 import { getLocalDate, isLocalDate, type LocalDate } from '../lib/local-date'
 import type { BooleanHabit } from '../models/habit'
-import type { HabitEntry } from '../models/habit-entry'
+import type { BooleanHabitStatus, HabitEntry } from '../models/habit-entry'
+import { getMissingDataPolicy, isObservationalHabit } from '../models/habit-policy'
+import { resolveHabitResult } from './habit-result'
 import { getHabitSchedule } from './habit-schedule'
 
 export interface BooleanStreak {
@@ -23,6 +25,16 @@ export function calculateBooleanStreak(habitId: string, entries: HabitEntry[], e
   if (!isLocalDate(endDate)) throw new Error('Некорректная календарная дата.')
   const history = entries.filter((entry) => entry.habitId === habitId && entry.date <= endDate)
     .sort((a, b) => a.date.localeCompare(b.date))
+  return calculateBooleanResultStreak(history.map((entry) => {
+    if (entry.type !== 'boolean') throw new Error('Тип записи не соответствует привычке.')
+    return { date: entry.date, status: entry.status }
+  }), endDate)
+}
+
+/** Accepts computed results rather than fake HabitEntry rows with invented timestamps. */
+export function calculateBooleanResultStreak(results: { date: LocalDate; status: BooleanHabitStatus }[], endDate: LocalDate): BooleanStreak {
+  if (!isLocalDate(endDate)) throw new Error('Некорректная календарная дата.')
+  const history = results.filter((result) => result.date <= endDate).sort((a, b) => a.date.localeCompare(b.date))
   let successes = 0
   let failures = 0
   let streak = 0
@@ -30,7 +42,6 @@ export function calculateBooleanStreak(habitId: string, entries: HabitEntry[], e
   let previousSuccess: LocalDate | null = null
   for (const entry of history) {
     if (!isLocalDate(entry.date)) throw new Error('Некорректная дата в истории привычки.')
-    if (entry.type !== 'boolean') throw new Error('Тип записи не соответствует привычке.')
     if (entry.status === 'success') {
       const followsPrevious = previousSuccess !== null
         && getLocalDate(addDays(parseISO(previousSuccess), 1)) === entry.date
@@ -67,13 +78,27 @@ export class StreakService {
     return this.database.transaction('r', this.database.habits, this.database.habitEntries, async () => {
       const habits = (await this.database.habits.where('type').equals('boolean').toArray())
         .filter((habit): habit is BooleanHabit => habit.type === 'boolean' && habit.archivedAt === null)
-        .filter((habit) => getHabitSchedule(habit).type === 'daily')
+        .filter((habit) => getHabitSchedule(habit).type === 'daily' && !isObservationalHabit(habit))
         .sort((a, b) => a.order - b.order)
-      return Promise.all(habits.map(async (habit) => {
-        const entries = await this.database.habitEntries.where('[habitId+date]')
-          .between([habit.id, '0000-01-01'], [habit.id, endDate], true, true).toArray()
-        return { habit, ...calculateBooleanStreak(habit.id, entries, endDate) }
-      }))
+      const entries = await this.database.habitEntries.where('date').belowOrEqual(endDate).toArray()
+      const byHabit = new Map<string, HabitEntry[]>()
+      for (const entry of entries) {
+        const rows = byHabit.get(entry.habitId) ?? []
+        rows.push(entry)
+        byHabit.set(entry.habitId, rows)
+      }
+      const today = getLocalDate()
+      return habits.map((habit) => {
+        const rows = byHabit.get(habit.id) ?? []
+        if (getMissingDataPolicy(habit) === 'manual') return { habit, ...calculateBooleanStreak(habit.id, rows, endDate) }
+        const first = rows.reduce((start, row) => row.date < start ? row.date : start, getLocalDate(new Date(habit.createdAt)))
+        const byDate = new Map(rows.map((entry) => [entry.date, entry]))
+        const days = first > endDate ? [] : eachDayOfInterval({ start: parseISO(first), end: parseISO(endDate) }).map((day) => {
+          const date = getLocalDate(day)
+          return { date, ...resolveHabitResult(habit, byDate.get(date), date, today) }
+        })
+        return { habit, ...calculateBooleanResultStreak(days, endDate) }
+      })
     })
   }
 }

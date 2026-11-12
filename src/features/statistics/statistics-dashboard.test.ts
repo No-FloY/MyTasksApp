@@ -21,7 +21,10 @@ const today = date('2026-10-23')
 const selectedDay = date('2026-10-22')
 function data(preset: StatisticsPreset, entries: HabitEntry[] = [], selected = selectedDay) {
   const period = getStatisticsPeriod(preset, today, undefined, selected)
-  return calculateStatistics({ habits: createInitialHabits(timestamp), entries, tasks: [], goals: [], milestones: [] }, period, now)
+  // These presentation cases exercise manual/no-data semantics; inferred results
+  // have separate service and presentation coverage below.
+  const habits = createInitialHabits(timestamp).map((habit) => ({ ...habit, missingDataPolicy: 'manual' as const }))
+  return calculateStatistics({ habits, entries, tasks: [], goals: [], milestones: [] }, period, now)
 }
 const marks: HabitEntry[] = [
   { habitId: 'english', type: 'boolean', status: 'success', date: selectedDay, createdAt: timestamp, updatedAt: timestamp },
@@ -31,6 +34,13 @@ const marks: HabitEntry[] = [
 ]
 
 describe('statistics dashboard presentation', () => {
+  it('shows inferred completed-day coverage while keeping coffee out of score denominators', () => {
+    const result = calculateStatistics({ habits: createInitialHabits(timestamp), entries: [], tasks: [], goals: [], milestones: [] }, getStatisticsPeriod('day', today, undefined, selectedDay), now)
+    const html = renderToStaticMarkup(createElement(StatisticsOverview, { data: result }))
+    expect(html).toContain('data-testid="dashboard-filled">14 / 22')
+    expect(html).toContain('data-testid="dashboard-coffee"')
+    expect(html).not.toContain('data-testid="statistics-empty"')
+  })
   it('renders selected day values, a recorded zero and category bars from that day only', () => {
     const html = renderToStaticMarkup(createElement(StatisticsOverview, { data: data('day', marks) }))
     expect(html).toContain('data-testid="dashboard-filled">3 / 22')

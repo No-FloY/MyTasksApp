@@ -1,15 +1,18 @@
 import { db, type TaskTrackerDatabase } from '../db/database'
-import { assertEditableDate, isLocalDate, type LocalDate } from '../lib/local-date'
+import { assertEditableDate, getLocalDate, isLocalDate, type LocalDate } from '../lib/local-date'
 import type { AmountHabit, BooleanHabit } from '../models/habit'
 import type { BooleanHabitEntry, BooleanHabitStatus, HabitEntry } from '../models/habit-entry'
 import { getHabitEntryDate, getWeekStart, isHabitExpectedOnDate, isWeeklyHabit } from './habit-schedule'
+import { resolveHabitResult, type HabitResultSource } from './habit-result'
 
 export interface BooleanHabitWithStatus {
   habit: BooleanHabit
   status: BooleanHabitStatus
+  source: HabitResultSource
 }
 
 export interface AmountHabitWithProgress {
+  source?: HabitResultSource
   habit: AmountHabit
   value: number
   hasEntry: boolean
@@ -84,6 +87,14 @@ export function getAmountHabitProgress(habit: AmountHabit, entry: HabitEntry | u
   }
 }
 
+/** Known inferred zero is calculated without creating a storage-shaped entry. */
+export function getAmountHabitResultProgress(habit: AmountHabit, entry: HabitEntry | undefined, date: LocalDate, today: LocalDate): AmountHabitWithProgress {
+  const recorded = getAmountHabitProgress(habit, entry)
+  const result = resolveHabitResult(habit, entry, date, today)
+  if (result.source !== 'inferred') return { ...recorded, source: result.source }
+  return { habit, value: 0, hasEntry: true, status: 'in-progress', progress: 0, source: 'inferred' }
+}
+
 export class HabitService {
   private readonly database: TaskTrackerDatabase
 
@@ -111,14 +122,17 @@ export class HabitService {
         const statuses = new Map(
           entries
             .filter((entry): entry is BooleanHabitEntry => entry.type === 'boolean')
-            .map((entry) => [`${entry.habitId}:${entry.date}`, entry.status]),
+            .map((entry) => [`${entry.habitId}:${entry.date}`, entry]),
         )
 
         return habits
           .filter((habit): habit is BooleanHabit => habit.type === 'boolean' && habit.archivedAt === null)
           .filter((habit) => isWeeklyHabit(habit) || isHabitExpectedOnDate(habit, date))
           .sort((first, second) => first.order - second.order)
-          .map((habit) => ({ habit, status: statuses.get(`${habit.id}:${getHabitEntryDate(habit, date)}`) ?? 'no-data' }))
+          .map((habit) => {
+            const result = resolveHabitResult(habit, statuses.get(`${habit.id}:${getHabitEntryDate(habit, date)}`), date, getLocalDate())
+            return { habit, status: result.status, source: result.source }
+          })
       },
     )
   }
@@ -141,7 +155,7 @@ export class HabitService {
           .filter((habit): habit is AmountHabit => habit.type === 'amount' && habit.archivedAt === null)
           .filter((habit) => isWeeklyHabit(habit) || isHabitExpectedOnDate(habit, date))
           .sort((first, second) => first.order - second.order)
-          .map((habit) => getAmountHabitProgress(habit, entries.get(`${habit.id}:${getHabitEntryDate(habit, date)}`)))
+          .map((habit) => getAmountHabitResultProgress(habit, entries.get(`${habit.id}:${getHabitEntryDate(habit, date)}`), date, getLocalDate()))
       },
     )
   }

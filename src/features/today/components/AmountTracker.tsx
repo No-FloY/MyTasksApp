@@ -22,7 +22,7 @@ const numberFormatter = new Intl.NumberFormat('ru-RU')
 export function AmountTracker({
   mode = 'add',
   showQuickActions = mode === 'add',
-  item: { habit, value, status, progress, hasEntry },
+  item: { habit, value, status, progress, hasEntry, source },
   input,
   pending,
   error,
@@ -40,7 +40,7 @@ export function AmountTracker({
   const amountLabel = `${numberFormatter.format(value)} / ${numberFormatter.format(habit.target)} ${unitLabel}, ${percent}%`
   const AmountIcon = habit.unit === 'ml' ? Droplets : Target
   const compact = mode === 'total' && showQuickActions
-  const statusLabel = hasEntry && value === 0 ? `Сохранено 0 ${unitLabel}` : status === 'success'
+  const statusLabel = source === 'inferred' ? `По правилу: 0 ${unitLabel}` : hasEntry && value === 0 ? `Сохранено 0 ${unitLabel}` : status === 'success'
     ? 'Цель достигнута'
     : status === 'no-data'
       ? 'Пока нет записей'

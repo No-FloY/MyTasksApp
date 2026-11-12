@@ -10,7 +10,10 @@ export const date = '2026-10-23'
 export function fixture(): BackupData {
   if (!isLocalDate(date)) throw new Error('Invalid fixture date')
   const stamps = { createdAt: '2026-10-01T09:00:00.000Z', updatedAt: instant.toISOString() }
-  const habits = createInitialHabits(stamps.createdAt)
+  // Existing explicit-result regression cases intentionally exercise manual missing data.
+  // The policy/coffee suite separately exercises current system defaults and inference.
+  const habits = createInitialHabits(stamps.createdAt).map((habit) => ({ ...habit,
+    missingDataPolicy: habit.schedule?.type === 'weekly' ? 'assume_not_done' as const : 'manual' as const }))
   const water = habits.find((habit) => habit.id === 'water')
   if (water?.type !== 'amount') throw new Error('Missing water fixture')
   water.target = 2400
@@ -92,8 +95,11 @@ export async function downloadBackup(page: Page) {
   return JSON.parse(await readFile(path, 'utf8')) as BackupSnapshot
 }
 
-export async function restoreBackup(page: Page, snapshot: BackupSnapshot) {
-  await page.getByLabel('Файл резервной копии', { exact: true }).setInputFiles({
+export async function restoreBackup(page: Page, snapshot: unknown) {
+  const input = page.getByLabel('Файл резервной копии', { exact: true })
+  // File selection itself does not wait for React/database initialization.
+  await expect(input).toBeEnabled()
+  await input.setInputFiles({
     name: 'pwa-backup.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(snapshot)),
   })
   await expect(page.getByRole('region', { name: 'Предпросмотр резервной копии', exact: true })).toBeVisible()

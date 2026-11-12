@@ -16,6 +16,8 @@ import { getWeekStart, isWeeklyHabit } from '../habit-schedule'
 import { calculateWeeklyHabitStatistics } from './weekly-habit-statistics'
 import { calculateFoodStatistics } from './food-statistics'
 import { calculateDashboardSummary } from './dashboard-summary'
+import { calculateCoffeeStatistics } from './coffee-statistics'
+import { isObservationalHabit } from '../../models/habit-policy'
 
 export interface StatisticsSource {
   habits: Habit[]
@@ -40,8 +42,9 @@ function calculateHabits(
   const durations = habits.flatMap((habit) => habit.type === 'duration' && !isWeeklyHabit(habit)
     ? [calculateDurationStatistics(habit, entriesByHabit.get(habit.id) ?? [], period, firstRecordedDates?.get(habit.id))]
     : []).filter((item) => item.eligibleDays > 0)
-  const successCount = booleans.reduce((sum, item) => sum + item.successCount, 0)
-  const markedCount = booleans.reduce((sum, item) => sum + item.markedCount, 0)
+  const scoredBooleans = booleans.filter((item) => !isObservationalHabit(item.habit))
+  const successCount = scoredBooleans.reduce((sum, item) => sum + item.successCount, 0)
+  const markedCount = scoredBooleans.reduce((sum, item) => sum + item.markedCount, 0)
   return { booleans, amounts, durations, successCount, markedCount,
     habitSuccessRate: markedCount === 0 ? null : successCount / markedCount * 100 }
 }
@@ -56,6 +59,10 @@ export function calculateStatistics(source: StatisticsSource, period: Statistics
     entriesByHabit.set(entry.habitId, entries)
   }
   const habitStatistics = calculateHabits(habits, entriesByHabit, period, source.firstRecordedDates)
+  const coffeeHabit = habits.find((habit) => habit.type === 'boolean' && habit.id === 'coffee')
+  const coffee = coffeeHabit?.type === 'boolean' ? calculateCoffeeStatistics(coffeeHabit,
+    entriesByHabit.get(coffeeHabit.id) ?? [], period, source.firstRecordedDates?.get(coffeeHabit.id),
+    habitStatistics.booleans.find((item) => item.habit.id === coffeeHabit.id)) : null
   const weeklyHabits = habits.filter((habit) => habit.type === 'boolean' && isWeeklyHabit(habit))
     .map((habit) => calculateWeeklyHabitStatistics(habit, entriesByHabit.get(habit.id) ?? [], period, source.firstRecordedDates?.get(habit.id)))
     .filter((item) => item.eligibleWeeks > 0)
@@ -83,9 +90,10 @@ export function calculateStatistics(source: StatisticsSource, period: Statistics
     scoreDays.filter((day) => day.date >= weekStart))
   const dashboard = calculateDashboardSummary({ period, days: scoreDays.filter((day) => day.date >= period.startDate),
     weeklyScore, ...habitStatistics, food })
-  return { period, ...habitStatistics, tasks, goals, weekly, dayScore, weeklyScore, weeklyHabits, food, dashboard,
+  return { period, ...habitStatistics, tasks, goals, weekly, dayScore, weeklyScore, weeklyHabits, food, dashboard, coffee,
     hasPeriodData: habitStatistics.markedCount > 0
-      || weeklyHabits.some((item) => item.weeks.some((week) => week.entry !== undefined && week.status !== 'no-data'))
+      || (coffee?.filledDays ?? 0) > 0
+      || weeklyHabits.some((item) => item.weeks.some((week) => week.status !== 'no-data'))
       || habitStatistics.amounts.some((item) => item.daysWithData > 0)
       || habitStatistics.durations.some((item) => item.recordedDays > 0) || tasks.tasksDue > 0 }
 }

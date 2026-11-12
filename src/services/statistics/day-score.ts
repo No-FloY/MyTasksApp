@@ -2,6 +2,8 @@ import type { LocalDate } from '../../lib/local-date'
 import type { Habit } from '../../models/habit'
 import { HABIT_CATEGORIES, getHabitCategory, type HabitCategory } from '../../models/habit-category'
 import type { HabitEntry } from '../../models/habit-entry'
+import { isObservationalHabit } from '../../models/habit-policy'
+import { resolveHabitResult } from '../habit-result'
 import { getDurationRating } from '../duration-service'
 import { getAmountHabitProgress } from '../habit-service'
 import { getHabitEntryDate, getWeekStart, isHabitExpectedOnDate, isWeeklyHabit } from '../habit-schedule'
@@ -60,7 +62,7 @@ export function getRatingLevelScore(index: number, count: number): number {
 /** Missing marks stay missing; this function never changes a stored result. */
 export function getHabitScore(habit: Habit, entry: HabitEntry | undefined): number | null {
   // RatingHabit has no defined scale. Do not invent one from its stored values.
-  if (habit.type === 'rating' || !entry) return null
+  if (habit.type === 'rating' || isObservationalHabit(habit) || !entry) return null
   if (entry.habitId !== habit.id || entry.type !== habit.type) throw new Error('Тип записи не соответствует привычке.')
   if (habit.type === 'boolean' && entry.type === 'boolean') {
     if (entry.status === 'no-data') return null
@@ -76,6 +78,13 @@ export function getHabitScore(habit: Habit, entry: HabitEntry | undefined): numb
   throw new Error('Тип записи не соответствует привычке.')
 }
 
+function calculateHabitScore(habit: Habit, entry: HabitEntry | undefined, date: LocalDate, today: LocalDate): number | null {
+  if (isObservationalHabit(habit) || habit.type === 'rating') return null
+  const result = resolveHabitResult(habit, entry, date, today)
+  if (result.source === 'inferred') return result.type === 'boolean' && result.status === 'success' ? 100 : 0
+  return getHabitScore(habit, entry)
+}
+
 /** Precompute a timeline once for the overview, chart and selected day. */
 export function calculateDayScores(
   habits: Habit[], entries: HabitEntry[], period: StatisticsPeriod, firstRecordedDates?: ReadonlyMap<string, LocalDate>,
@@ -86,7 +95,7 @@ export function calculateDayScores(
     rows.push(entry)
     entriesByHabit.set(entry.habitId, rows)
   }
-  const prepared = habits.map((habit) => {
+  const prepared = habits.filter((habit) => !isObservationalHabit(habit)).map((habit) => {
     const rows = entriesByHabit.get(habit.id) ?? []
     return { habit, category: getHabitCategory(habit), byDate: new Map(rows.map((entry) => [entry.date, entry])),
       dates: new Set(getHabitPeriodDates(habit, rows, period, firstRecordedDates?.get(habit.id))) }
@@ -102,7 +111,7 @@ export function calculateDayScores(
       if (item.habit.type === 'rating') { unsupportedRatingCount += 1; continue }
       const group = groups.get(item.category) ?? { values: [], eligible: 0 }
       group.eligible += 1
-      const score = getHabitScore(item.habit, item.byDate.get(entryDate))
+      const score = calculateHabitScore(item.habit, item.byDate.get(entryDate), date, period.today)
       if (score !== null) group.values.push(score)
       groups.set(item.category, group)
     }
@@ -121,8 +130,9 @@ export function calculateDayScores(
 
 export function calculateDayScore(
   habits: Habit[], entries: HabitEntry[], date: LocalDate, firstRecordedDates?: ReadonlyMap<string, LocalDate>,
+  today: LocalDate = date,
 ): DayScoreData {
-  const period = getStatisticsPeriod('custom', date, { startDate: date, endDate: date })
+  const period = getStatisticsPeriod('custom', today, { startDate: date, endDate: date })
   return calculateDayScores(habits, entries, period, firstRecordedDates)[0]!
 }
 
@@ -141,10 +151,10 @@ export function calculateWeeklyScore(
     ? calculateDayScores(habits.filter((habit) => !isWeeklyHabit(habit)), entries, period, firstRecordedDates)
     : days
   const sufficientDailyDays = dailyDays.filter((day) => day.sufficient)
-  const weeklyGoals = habits.filter((habit) => isWeeklyHabit(habit) && habit.type !== 'rating').flatMap((habit) => {
+  const weeklyGoals = habits.filter((habit) => isWeeklyHabit(habit) && habit.type !== 'rating' && !isObservationalHabit(habit)).flatMap((habit) => {
     const occurrence = getWeeklyHabitOccurrences(habit, entries, period, firstRecordedDates?.get(habit.id))[0]
     if (!occurrence) return []
-    const score = occurrence.inferredFailure ? 0 : getHabitScore(habit, occurrence.entry)
+    const score = occurrence.source === 'inferred' ? occurrence.status === 'success' ? 100 : 0 : getHabitScore(habit, occurrence.entry)
     return [{ id: habit.id, name: habit.name, category: getHabitCategory(habit), score }]
   })
   const eligibleDays = days.filter((day) => day.eligible > 0)

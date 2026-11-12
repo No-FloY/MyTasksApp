@@ -1,11 +1,13 @@
 import type { DurationRatingRange } from './duration-rating'
 import type { HabitCategory } from './habit-category'
 import type { HabitSchedule } from './habit-schedule'
+import type { BooleanHabitMode, MissingDataPolicy } from './habit-policy'
 
 interface HabitBase {
   id: string
   category: HabitCategory
   schedule?: HabitSchedule
+  missingDataPolicy?: MissingDataPolicy
   name: string
   description: string
   order: number
@@ -16,6 +18,7 @@ interface HabitBase {
 
 export interface BooleanHabit extends HabitBase {
   type: 'boolean'
+  booleanMode?: BooleanHabitMode
 }
 
 export interface AmountHabit extends HabitBase {

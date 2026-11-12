@@ -6,7 +6,8 @@ import { calculateFoodStatistics } from './food-statistics'
 import { getStatisticsPeriod } from './period-utils'
 
 const timestamp = '2026-09-01T10:00:00.000Z'
-const habits = createInitialHabits(timestamp)
+// These cases retain explicit/manual semantics; automatic event inference has separate coverage.
+const habits = createInitialHabits(timestamp).map((habit) => habit.schedule?.type === 'weekly' ? habit : { ...habit, missingDataPolicy: 'manual' as const })
 function date(value: string): LocalDate {
   if (!isLocalDate(value)) throw new Error('Invalid fixture date')
   return value

@@ -19,6 +19,8 @@ beforeEach(async () => {
   vi.setSystemTime(new Date(2026, 10, 1, 12))
   database = new TaskTrackerDatabase(`scheduled-${crypto.randomUUID()}`)
   await database.open()
+  // Isolate schedule persistence from the separate inferred-policy defaults.
+  await database.habits.toCollection().modify({ createdAt: '2026-10-01T09:00:00.000Z', missingDataPolicy: 'manual' })
   service = new HabitService(database)
 })
 afterEach(async () => {
@@ -65,7 +67,7 @@ describe('scheduled HabitEntry persistence', () => {
     const habits = await database.habits.toArray()
     const entries = await database.habitEntries.toArray()
     for (const day of ['2026-10-26', '2026-10-27', '2026-11-01']) {
-      expect(computeDaySummary(habits, entries, date(day))).toMatchObject({ total: 22, recorded: 0, failures: 0 })
+      expect(computeDaySummary(habits, entries, date(day))).toMatchObject({ total: 23, recorded: 0, failures: 0 })
     }
     expect((await new StreakService(database).getBooleanStatistics(date('2026-11-01'))).some((item) => item.habit.id === 'cleaning')).toBe(false)
   })
@@ -78,7 +80,7 @@ describe('scheduled HabitEntry persistence', () => {
     await service.setBooleanHabitStatus('cleaning', date('2026-10-28'), 'success')
     const habits = await database.habits.toArray()
     const entries = await database.habitEntries.toArray()
-    expect(computeDaySummary(habits, entries, date('2026-11-01'))).toMatchObject({ total: 22, recorded: 1, successes: 1 })
-    expect(computeDaySummary(habits, entries, date('2026-10-28'))).toMatchObject({ total: 22, recorded: 0 })
+    expect(computeDaySummary(habits, entries, date('2026-11-01'))).toMatchObject({ total: 23, recorded: 1, successes: 1 })
+    expect(computeDaySummary(habits, entries, date('2026-10-28'))).toMatchObject({ total: 23, recorded: 0 })
   })
 })

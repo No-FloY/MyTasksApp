@@ -99,9 +99,9 @@ export function DayHabits({ date, mode }: { date: LocalDate; mode: 'today' | 'ca
         </div>}
         {category.booleans.length > 0 && <Card className="habits-card category-booleans">
           <ul className="habit-list" aria-label={`${category.label}: ${mode === 'calendar' ? 'привычки выбранного дня' : 'привычки на сегодня'}`}>
-            {category.booleans.map(({ habit, status }, index) => {
+            {category.booleans.map(({ habit, status, source }, index) => {
               const saveState = getSaveState(habit.id)
-              return <HabitRow key={habit.id} habit={habit} date={date} status={status} index={index} pending={saveState.pending} error={saveState.error} onChange={(nextStatus) => saveStatus(habit.id, nextStatus)} />
+              return <HabitRow key={habit.id} habit={habit} date={date} status={status} source={source} index={index} pending={saveState.pending} error={saveState.error} onChange={(nextStatus) => saveStatus(habit.id, nextStatus)} />
             })}
           </ul>
         </Card>}

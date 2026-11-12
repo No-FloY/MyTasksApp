@@ -688,12 +688,12 @@ Dashboard сохраняет таблицы, библиотеку графико
 
 - [x] Atomic import с общим ensureCurrentSystemData; восстановление актуальных системных Habit из старого backup
 - [x] Сохранность имён/архива/настроек/истории, отсутствие дубликатов и rollback backfill
-- [ ] MissingDataPolicy: manual / assume_not_done / assume_not_occurred, вычисляемые результаты завершённых локальных дней
-- [ ] Явные записи, включая no-data, имеют приоритет; до создания Habit и в текущий день предположения не применяются
-- [ ] Settings и backup для policy; единая семантика Today/Calendar/Statistics/coverage
-- [ ] Нейтральный coffee: Пил / Не пил / Нет данных, исключение из DayScore/WeeklyScore/coverage
-- [ ] Coffee counts/frequency/dynamics для всех периодов, migration и old-backup backfill
-- [ ] Regression дополнений: unit/integration, Chrome/WebKit, mobile/PWA, build
+- [x] MissingDataPolicy: manual / assume_not_done / assume_not_occurred, вычисляемые результаты завершённых локальных дней
+- [x] Явные записи, включая no-data, имеют приоритет; до создания Habit и в текущий день предположения не применяются
+- [x] Settings и backup для policy; единая семантика Today/Calendar/Statistics/coverage
+- [x] Нейтральный coffee: Пил / Не пил / Нет данных, исключение из DayScore/WeeklyScore/coverage
+- [x] Coffee counts/frequency/dynamics для всех периодов, migration и old-backup backfill
+- [x] Regression дополнений: unit/integration, Chrome/WebKit, mobile/PWA, build
 - [ ] Отдельный bugfix commit, push main, Vercel и финальный отчёт
 
 Проверка dashboard перед дополнениями, 2026-11-09:
@@ -705,3 +705,33 @@ Dashboard сохраняет таблицы, библиотеку графико
 - Обзор разделён на 7 вкладок, на экране только активная; высота overview и touch
   targets проверены E2E, детали оценок по умолчанию свёрнуты.
 - PWA update/offline: 2 passed в Chrome/WebKit после исправления ожидания сохранения перед reload; реальное обновление двух сборок и остановка origin проверены.
+
+Проверки дополнений, 2026-11-12:
+
+- Unit/integration: 994 passed в 41 файле. Дополнительный прогон 14 presentation
+  tests после уточнения пояснений — успешно. TypeScript и lint прошли.
+- Общий resolver различает explicit / inferred / no-data; проверены текущий день,
+  локальная полночь, даты до создания, архив, расписания и приоритет явного no-data.
+  Вычисляемые результаты не создают HabitEntry даже после статистики и reload.
+- Кофе: 17 дней с кофе, 11 без кофе, 3 no-data дают частоту 61%; все периоды и
+  weekly/monthly buckets проверены. DayScore, WeeklyScore, coverage и серии
+  исключают наблюдение независимо от значения.
+- Schema v9 сохраняет пять таблиц и добавляет только отсутствующие определения
+  и поля. Проверены v8 → v9, rollback/retry, пользовательские имена, архив и
+  явная manual policy. Backup v4 хранит новые поля; импорт v1/v2/v3 поддерживается.
+- `ensureCurrentSystemData` используется при upgrade, startup и внутри atomic
+  replace import. Old → current и current → current сохраняют историю и связи,
+  не создают дубликаты и не добавляют фиктивные исторические результаты.
+- PWA update/offline: 2 passed, Chrome и WebKit. Настоящие сборки A → B, закрытие
+  другого окна, сохранение пяти таблиц, legacy import, кофе и reload проверены
+  после полной остановки origin-сервера.
+- Проверки используют изолированные тестовые контексты; личная IndexedDB
+  пользователя не изменялась. Новые функции на физическом iPhone не проверялись.
+- Полный E2E-набор: 222 сценария, 205 passed, 13 failed, 4 прежних WebKit skips.
+  11 падений были устаревшими ожиданиями, два — тайм-аутами запуска WebKit.
+  После исправления тестовых условий все 14 затронутых сценариев успешно
+  повторены с одним worker. Итого 218 уникальных успешных сценариев и 4 skips;
+  существующие тесты не отключались. Mobile 320/375/390 проверен в обоих движках,
+  свежие screenshots dashboard и coffee statistics просмотрены.
+- Итоговый `npm run build` 2026-11-13 прошёл: TypeScript, production bundle и
+  PWA precache сформированы успешно. `git diff --check` ошибок не обнаружил.

@@ -2,7 +2,8 @@ import type { LocalDate } from '../../lib/local-date'
 import type { Habit } from '../../models/habit'
 import type { BooleanHabitStatus, HabitEntry } from '../../models/habit-entry'
 import { getWeekEnd, getWeekStart } from '../habit-schedule'
-import { getHabitPeriodDates, getTimestampLocalDate, type StatisticsPeriod } from './period-utils'
+import { getHabitPeriodDates, type StatisticsPeriod } from './period-utils'
+import { resolveHabitResult, type HabitResultSource } from '../habit-result'
 
 export interface WeeklyHabitOccurrence {
   startDate: LocalDate
@@ -11,6 +12,7 @@ export interface WeeklyHabitOccurrence {
   /** A closed, unrecorded week is derived as failure; nothing is written to storage. */
   status: BooleanHabitStatus
   inferredFailure: boolean
+  source: HabitResultSource
 }
 
 /** One occurrence for each calendar week intersecting the habit's tracked period. */
@@ -19,20 +21,17 @@ export function getWeeklyHabitOccurrences(
 ): WeeklyHabitOccurrence[] {
   const rows = entries.filter((entry) => entry.habitId === habit.id && entry.date <= period.endDate)
   const byWeek = new Map(rows.map((entry) => [getWeekStart(entry.date), entry]))
-  let trackedStart = getTimestampLocalDate(habit.createdAt)
-  if (firstRecordedDate !== undefined && firstRecordedDate < trackedStart) trackedStart = firstRecordedDate
-  for (const entry of rows) if (entry.date < trackedStart) trackedStart = entry.date
   const dates = getHabitPeriodDates(habit, rows, period, firstRecordedDate)
   const weeks = [...new Set(dates.map(getWeekStart))]
   return weeks.map((startDate) => {
     const endDate = getWeekEnd(startDate)
     const entry = byWeek.get(startDate)
     if (entry && entry.type !== habit.type) throw new Error('Тип записи не соответствует привычке.')
-    const archivedBeforeEnd = habit.archivedAt !== null && getTimestampLocalDate(habit.archivedAt) < endDate
-    const inferredFailure = !entry && startDate >= period.startDate && startDate >= trackedStart
-      && endDate < period.today && endDate <= period.endDate && !archivedBeforeEnd
-    const status = entry?.type === 'boolean' ? entry.status : inferredFailure ? 'failure' : 'no-data'
-    return { startDate, endDate, entry, status, inferredFailure }
+    const wholeSelectedWeek = startDate >= period.startDate && endDate <= period.endDate
+    const result = resolveHabitResult(wholeSelectedWeek ? habit : { ...habit, missingDataPolicy: 'manual' }, entry, startDate, period.today)
+    const status = result.type === 'boolean' ? result.status : result.source === 'inferred' ? 'failure' : 'no-data'
+    const inferredFailure = result.source === 'inferred' && status === 'failure'
+    return { startDate, endDate, entry, status, inferredFailure, source: result.source }
   })
 }
 

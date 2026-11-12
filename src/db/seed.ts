@@ -1,11 +1,12 @@
 import type { BooleanHabit, Habit } from '../models/habit'
+import { getDefaultHabitPolicy } from '../models/habit-policy'
 import { getInitialDurationRanges } from './duration-defaults'
 
 /** Real starting configuration; results are only created by the user's actions. */
 export function createInitialHabits(now: string = new Date().toISOString()): Habit[] {
   const shared = { createdAt: now, updatedAt: now, archivedAt: null }
 
-  return [
+  const habits: Habit[] = [
     {
       ...shared,
       id: 'abstinence',
@@ -114,10 +115,31 @@ export function createInitialHabits(now: string = new Date().toISOString()): Hab
       order: 10,
     },
     ...createStageTenHabits(now),
+    createCoffeeHabit(now),
   ]
+  return habits.map(withDefaultHabitPolicy)
 }
 
-/** Only genuinely new definitions; missing old seed habits must stay deleted. */
+/** Only absent policy metadata is filled; explicit user choices remain authoritative. */
+export function withDefaultHabitPolicy(habit: Habit): Habit {
+  const defaults = getDefaultHabitPolicy(habit.id, habit.type)
+  const missingDataPolicy = habit.missingDataPolicy ?? defaults.missingDataPolicy
+  return habit.type === 'boolean'
+    ? { ...habit, missingDataPolicy, booleanMode: habit.booleanMode ?? defaults.booleanMode ?? 'achievement' }
+    : { ...habit, missingDataPolicy }
+}
+
+/** Neutral observation reuses universal boolean storage; no historical entries are seeded. */
+export function createCoffeeHabit(now: string): BooleanHabit {
+  return {
+    id: 'coffee', category: 'food_water', type: 'boolean', name: 'Кофе',
+    description: 'Отметить факт употребления кофе', order: 23,
+    missingDataPolicy: 'assume_not_occurred', booleanMode: 'observation',
+    createdAt: now, updatedAt: now, archivedAt: null,
+  }
+}
+
+/** Historical Stage 10 subset; current startup/import completion uses the full seed. */
 export function createStageTenHabits(now: string): Habit[] {
   const shared = { createdAt: now, updatedAt: now, archivedAt: null }
   return [

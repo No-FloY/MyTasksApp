@@ -9,7 +9,7 @@ import type { Task } from '../models/task'
 import { BackupService, parseBackupJson } from '../services/backup-service'
 import { HabitService } from '../services/habit-service'
 import { TaskTrackerDatabase } from './database'
-import { createInitialHabits, createSweetsHabit } from './seed'
+import { createInitialHabits, createSweetsHabit, withDefaultHabitPolicy } from './seed'
 
 const createdAt = '2026-09-01T10:00:00.000Z'
 const updatedAt = '2026-10-15T10:00:00.000Z'
@@ -51,7 +51,7 @@ function legacySweets(fields: Partial<BooleanHabit> = {}): BooleanHabit {
 async function createLegacy(sweets: Habit | null = legacySweets()) {
   const database = track(new VersionSixDatabase(`sweets-upgrade-${crypto.randomUUID()}`))
   await database.open()
-  const habits = createInitialHabits(createdAt).filter((habit) => habit.id !== 'no-sweets')
+  const habits = createInitialHabits(createdAt).filter((habit) => habit.id !== 'no-sweets' && habit.id !== 'coffee')
   if (sweets) habits.push(sweets)
   await database.habits.bulkAdd(habits)
   await database.habitEntries.bulkAdd([
@@ -104,27 +104,29 @@ describe('sweets habit migration from schema v6 to v7', () => {
     expect(await legacy.habits.count()).toBe(22)
     const before = await snapshot(legacy)
     const current = await upgrade(legacy)
-    expect(current.verno).toBe(8)
-    expect(current.backendDB().version).toBe(80)
+    expect(current.verno).toBe(9)
+    expect(current.backendDB().version).toBe(90)
     expect(current.tables.map((table) => table.name).sort()).toEqual(['goalMilestones', 'goals', 'habitEntries', 'habits', 'tasks'])
-    expect(await current.habits.count()).toBe(23)
-    expect(await current.habits.get('no-sweets')).toStrictEqual(createSweetsHabit(migrationAt))
+    expect(await current.habits.count()).toBe(24)
+    expect(await current.habits.get('no-sweets')).toStrictEqual(withDefaultHabitPolicy(createSweetsHabit(migrationAt)))
     const migrated = await snapshot(current)
-    expect({ ...migrated, habits: migrated.habits.filter((habit) => habit.id !== 'no-sweets') }).toStrictEqual(before)
+    expect({ ...migrated, habits: migrated.habits.filter((habit) => habit.id !== 'no-sweets' && habit.id !== 'coffee') }).toStrictEqual(before)
     current.close()
     await current.open()
     expect(await snapshot(current)).toStrictEqual(migrated)
   })
 
-  it('changes only the old standard name, preserving settings, timestamps, notes and all five tables', async () => {
+  it('updates the standard name and absent policy metadata, preserving settings, timestamps, notes and all five tables', async () => {
     const original = legacySweets({ description: 'Мой текст', order: 99, category: 'self_development',
       schedule: { type: 'weekdays', days: [1, 4] }, archivedAt: updatedAt })
     const legacy = await createLegacy(original)
     const before = await snapshot(legacy)
     const current = await upgrade(legacy)
-    expect(await current.habits.get('no-sweets')).toStrictEqual({ ...original, name: 'Без сладкого / шоколада' })
-    expect(await snapshot(current)).toStrictEqual({ ...before,
-      habits: before.habits.map((habit) => habit.id === 'no-sweets' ? { ...habit, name: 'Без сладкого / шоколада' } : habit) })
+    const expectedSweets = { ...original, name: 'Без сладкого / шоколада', missingDataPolicy: 'assume_not_occurred', booleanMode: 'avoidance' }
+    expect(await current.habits.get('no-sweets')).toStrictEqual(expectedSweets)
+    const after = await snapshot(current)
+    expect({ ...after, habits: after.habits.filter((habit) => habit.id !== 'coffee') }).toStrictEqual({ ...before,
+      habits: before.habits.map((habit) => habit.id === 'no-sweets' ? expectedSweets : habit) })
   })
 
   it.each([null, updatedAt])('preserves a customized name/category/schedule with archive value %s', async (archivedAt) => {
@@ -133,8 +135,11 @@ describe('sweets habit migration from schema v6 to v7', () => {
     const legacy = await createLegacy(original)
     const before = await snapshot(legacy)
     const current = await upgrade(legacy)
-    expect(await current.habits.get('no-sweets')).toStrictEqual(original)
-    expect(await snapshot(current)).toStrictEqual(before)
+    const expectedSweets = { ...original, missingDataPolicy: 'assume_not_occurred', booleanMode: 'avoidance' }
+    expect(await current.habits.get('no-sweets')).toStrictEqual(expectedSweets)
+    const after = await snapshot(current)
+    expect({ ...after, habits: after.habits.filter((habit) => habit.id !== 'coffee') }).toStrictEqual({ ...before,
+      habits: before.habits.map((habit) => habit.id === 'no-sweets' ? expectedSweets : habit) })
   })
 
   it('never repeats the upgrade or restores a habit deleted after upgrading', async () => {
@@ -150,17 +155,17 @@ describe('sweets habit migration from schema v6 to v7', () => {
     current.close()
     await current.open()
     expect(await current.habits.get('no-sweets')).toBeUndefined()
-    expect(await current.habits.count()).toBe(22)
+    expect(await current.habits.count()).toBe(23)
     expect(await snapshot(current)).toStrictEqual(afterDeletion)
   })
 
   it('creates one current sweets definition and no results for a new database', async () => {
     const current = track(new TaskTrackerDatabase(`sweets-new-${crypto.randomUUID()}`))
     await current.open()
-    expect(await current.habits.count()).toBe(23)
-    expect(await current.habits.get('no-sweets')).toStrictEqual(createSweetsHabit(migrationAt))
+    expect(await current.habits.count()).toBe(24)
+    expect(await current.habits.get('no-sweets')).toStrictEqual(withDefaultHabitPolicy(createSweetsHabit(migrationAt)))
     expect(await current.habitEntries.count()).toBe(0)
-    expect(await current.habits.where('type').equals('boolean').count()).toBe(16)
+    expect(await current.habits.where('type').equals('boolean').count()).toBe(17)
   })
 
   it('rolls back the version and every store if adding the missing definition fails, then permits retry', async () => {
@@ -178,12 +183,12 @@ describe('sweets habit migration from schema v6 to v7', () => {
     expect(unchanged.backendDB().version).toBe(60)
     expect(await snapshot(unchanged)).toStrictEqual(before)
     const current = await upgrade(unchanged)
-    expect(current.backendDB().version).toBe(80)
-    expect(await current.habits.count()).toBe(23)
+    expect(current.backendDB().version).toBe(90)
+    expect(await current.habits.count()).toBe(24)
   })
 })
 
-describe('migrated sweets habit through universal services and backup format 3', () => {
+describe('migrated sweets habit through universal services and current backup format', () => {
   it('reads and updates success, failure and no-data without duplicating the daily fact or losing its note', async () => {
     const current = await upgrade(await createLegacy())
     const service = new HabitService(current)
@@ -207,14 +212,14 @@ describe('migrated sweets habit through universal services and backup format 3',
     }
   })
 
-  it('round-trips every table and all three sweets statuses in backup v3, including repeated import and reopen', async () => {
+  it('round-trips every table and all three sweets statuses in backup v4, including repeated import and reopen', async () => {
     const current = await upgrade(await createLegacy())
     const service = new HabitService(current)
     for (const [index, status] of statuses.entries()) {
       await service.setBooleanHabitStatus('no-sweets', getLocalDate(new Date(2026, 10, 1 + index)), status)
     }
     const backup = await new BackupService(current).exportBackup()
-    expect(backup.formatVersion).toBe(3)
+    expect(backup.formatVersion).toBe(4)
     expect(backup.data.habits.find((habit) => habit.id === 'no-sweets'))
       .toMatchObject({ name: 'Без сладкого / шоколада', category: 'food_water', type: 'boolean' })
     expect(backup.data).toStrictEqual(await snapshot(current))
@@ -227,7 +232,7 @@ describe('migrated sweets habit through universal services and backup format 3',
     restored.close()
     await restored.open()
     expect((await restoreService.exportBackup()).data).toStrictEqual(backup.data)
-    expect(await restored.habits.count()).toBe(23)
+    expect(await restored.habits.count()).toBe(24)
     expect(await restored.habitEntries.where('habitId').equals('no-sweets').count()).toBe(6)
     const restoredHabits = new HabitService(restored)
     for (const [index, status] of statuses.entries()) {

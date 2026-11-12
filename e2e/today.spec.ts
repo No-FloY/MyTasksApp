@@ -19,6 +19,7 @@ const booleanNames = [
   'Обед',
   'Ужин',
   'Уборка',
+  'Кофе',
 ] as const
 
 function habitCard(page: Page, name: string = 'Воздержание') {
@@ -66,8 +67,8 @@ test('seeds universal habits once and preserves all three boolean states after r
 
   const initial = await readDatabase(page)
   expect(initial.stores.sort()).toEqual(['goalMilestones', 'goals', 'habitEntries', 'habits', 'tasks'])
-  expect(initial.habits).toHaveLength(23)
-  expect(initial.habits.filter((habit) => habit.type === 'boolean')).toHaveLength(16)
+  expect(initial.habits).toHaveLength(24)
+  expect(initial.habits.filter((habit) => habit.type === 'boolean')).toHaveLength(17)
   expect(initial.habits).toEqual(expect.arrayContaining([
     expect.objectContaining({ id: 'water', name: 'Вода', type: 'amount', target: 2000 }),
     expect.objectContaining({ id: 'gaming', type: 'duration' }),
@@ -89,7 +90,7 @@ test('seeds universal habits once and preserves all three boolean states after r
     await page.reload()
     await expect(habitCard(page).getByRole('button', { name: label, exact: true }))
       .toHaveAttribute('aria-pressed', 'true')
-    expect((await readDatabase(page)).habits).toHaveLength(23)
+    expect((await readDatabase(page)).habits).toHaveLength(24)
   }
 
   // Explicit no-data remains a single persisted record, rather than a deleted row.
