@@ -662,7 +662,7 @@ PWA опубликована в существующем Vercel project и пр�
 
 # Этап 11 — Улучшение UX: dashboard, визуал оценки дня/недели и переработка статистики
 
-Статус: In progress — начат по прямому запросу пользователя.
+Статус: Completed — реализация, regression, commit, push main и проверка Vercel завершены.
 
 - [x] Компактные визуальные DayScore/WeeklyScore на Today, детали по запросу
 - [x] Переходы из оценок Today к конкретному дню/неделе Statistics
@@ -675,7 +675,7 @@ PWA опубликована в существующем Vercel project и пр�
 - [x] Идемпотентная миграция v6 → v7 с сохранением настроек, архива и истории
 - [x] Unit/integration, полный E2E, TypeScript, lint, build
 - [x] Mobile 320/375/390, WebKit и PWA/offline regression
-- [ ] README/ARCHITECTURE/ROADMAP, commit, push main, проверка Vercel
+- [x] README/ARCHITECTURE/ROADMAP, commit, push main, проверка Vercel
 
 Уточнение по существующим данным: no-sweets уже добавлен в этапе 10. Этап 11
 переиспользует этот ID, меняет только прежнее стандартное название и добавляет
@@ -684,7 +684,7 @@ Dashboard сохраняет таблицы, библиотеку графико
 
 После завершения этапа остановиться.
 
-Дополнения пользователя к текущему этапу (в работе):
+Дополнения пользователя к текущему этапу (завершены):
 
 - [x] Atomic import с общим ensureCurrentSystemData; восстановление актуальных системных Habit из старого backup
 - [x] Сохранность имён/архива/настроек/истории, отсутствие дубликатов и rollback backfill
@@ -694,7 +694,7 @@ Dashboard сохраняет таблицы, библиотеку графико
 - [x] Нейтральный coffee: Пил / Не пил / Нет данных, исключение из DayScore/WeeklyScore/coverage
 - [x] Coffee counts/frequency/dynamics для всех периодов, migration и old-backup backfill
 - [x] Regression дополнений: unit/integration, Chrome/WebKit, mobile/PWA, build
-- [ ] Отдельный bugfix commit, push main, Vercel и финальный отчёт
+- [x] Отдельный bugfix commit, push main, Vercel и финальный отчёт
 
 Проверка dashboard перед дополнениями, 2026-11-09:
 - Unit/integration: 922 passed в 36 файлах; TypeScript и lint прошли.
@@ -735,3 +735,26 @@ Dashboard сохраняет таблицы, библиотеку графико
   свежие screenshots dashboard и coffee statistics просмотрены.
 - Итоговый `npm run build` 2026-11-13 прошёл: TypeScript, production bundle и
   PWA precache сформированы успешно. `git diff --check` ошибок не обнаружил.
+
+Публикация проверена 2026-11-13:
+
+- В `origin/main` отправлены `764835f` (`feat: redesign dashboard and statistics UX`),
+  `a3752d3` (`fix: restore current system habits after legacy backup import`),
+  `8f5749d` (`feat: add neutral coffee tracking and missing-data policies`).
+- Vercel для `8f5749d`: success, «Deployment has completed».
+  [Production](https://my-tasks-app-xi.vercel.app/) доступен по HTTPS.
+- Проверены все 16 JS/CSS-assets, manifest, иконки, Service Worker и 28 файлов
+  precache. JavaScript соответствует локальной сборке после нормализации
+  хэшированных импортов. Отличие CSS — только платформенное округление одного
+  Lab-компонента на 0,00003. Актуальный entry присутствует в offline-кэше.
+- Production E2E (current-data, dashboard, PWA): 24 passed, 1 initial-navigation
+  timeout WebKit, 1 прежний offline skip. Повтор мобильного dashboard без
+  изменения кода/теста — passed за 8,1 с. Итого 25 уникальных успешных сценариев
+  и 1 skip. Проверены legacy import, нейтральный кофе, все периоды, policy,
+  локальная полночь, reload, navigation, mobile 320/375/390 и Chrome offline.
+- Общие 4 локальных пропуска WebKit сохраняются: незавершённый native time input
+  и три проверки эмуляции offline-транспорта. Реальная остановка origin в PWA
+  update suite успешно проверена в обоих движках. Физический iPhone для новых
+  функций требует отдельной ручной проверки.
+
+Этап 11 завершён. Следующий этап не начат.
